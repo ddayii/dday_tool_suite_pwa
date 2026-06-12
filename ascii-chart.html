@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCII Chart — DDay Controls</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#263626">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 0 4px;
+      flex-wrap: wrap;
+    }
+    .toolbar input[type=search] { flex: 1; min-width: 180px; }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .toggle-label input[type=checkbox] {
+      accent-color: var(--accent);
+      width: 15px; height: 15px;
+      cursor: pointer;
+    }
+
+    /* Tighter table for more columns */
+    .ascii-table thead th,
+    .ascii-table td { padding: 6px 7px; font-size: 0.78rem; }
+    .ascii-table thead th { top: 108px; }  /* below sticky toolbar */
+
+    .td-char { color: var(--accent); font-weight: 600; min-width: 36px; }
+    .td-ctrl { color: var(--text-muted); font-style: italic; }  /* <NUL> etc */
+    .td-name { color: var(--text-muted); font-family: inherit; font-weight: 600; font-size: 0.72rem; }
+    .td-ext  { color: var(--text); }  /* extended printable chars */
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="back-btn" href="index.html">&#8592; Back</a>
+    <img class="header-logo" src="icons/ascii-icon.png" alt="">
+    <div class="header-text">
+      <div class="title">ASCII Chart</div>
+      <div class="subtitle">Hex · Dec · Bin · Oct</div>
+    </div>
+  </header>
+
+  <main class="content" style="padding-top:0">
+    <div class="search-sticky">
+      <div class="toolbar">
+        <input type="search" id="search"
+               placeholder="Char, name, decimal, hex…"
+               autocomplete="off" autocorrect="off"
+               autocapitalize="off" spellcheck="false">
+        <label class="toggle-label">
+          <input type="checkbox" id="show-ext">
+          Show extended (128–255)
+        </label>
+      </div>
+    </div>
+
+    <div class="ascii-wrap">
+      <table class="ascii-table">
+        <thead>
+          <tr>
+            <th>Char</th>
+            <th>Dec</th>
+            <th>Hex</th>
+            <th>Oct</th>
+            <th>Bin</th>
+            <th>Name</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p id="no-rows" class="no-rows" style="display:none">No matching characters</p>
+  </main>
+
+  <script>
+    // Control character names 0–31 and 127
+    const CTRL_NAMES = {
+      0:'NUL',1:'SOH',2:'STX',3:'ETX',4:'EOT',5:'ENQ',6:'ACK',7:'BEL',
+      8:'BS',9:'HT',10:'LF',11:'VT',12:'FF',13:'CR',14:'SO',15:'SI',
+      16:'DLE',17:'DC1',18:'DC2',19:'DC3',20:'DC4',21:'NAK',22:'SYN',23:'ETB',
+      24:'CAN',25:'EM',26:'SUB',27:'ESC',28:'FS',29:'GS',30:'RS',31:'US',127:'DEL',
+    };
+
+    // Build rows for 0–255
+    function buildRows(maxN) {
+      return Array.from({ length: maxN + 1 }, (_, i) => {
+        const isCtrl    = i < 32 || i === 127;
+        const isExt     = i > 127;
+        const name      = CTRL_NAMES[i] || '';
+        const charDisp  = isCtrl ? `&lt;${name}&gt;` : (i === 32 ? '&nbsp;SP' : String.fromCharCode(i));
+        return {
+          n:       i,
+          dec:     i.toString(10),
+          hex:     i.toString(16).toUpperCase().padStart(2, '0'),
+          oct:     i.toString(8).padStart(3, '0'),
+          bin:     i.toString(2).padStart(8, '0'),
+          name,
+          isCtrl,
+          isExt,
+          charDisp,
+          // raw char for matching
+          charRaw: isCtrl ? name : String.fromCharCode(i),
+        };
+      });
+    }
+
+    // ── Filter logic ─────────────────────────────────────────────────────────
+    function rowMatches(r, term) {
+      if (!term) return true;
+
+      // Single character: case-insensitive — shows both 'A' (65) and 'a' (97)
+      if (term.length === 1) {
+        return r.charRaw.toLowerCase() === term.toLowerCase();
+      }
+
+      // Explicit 0x hex prefix
+      if (term.toLowerCase().startsWith('0x')) {
+        const h = term.slice(2).toLowerCase();
+        return h === '' || r.hex.toLowerCase().startsWith(h);
+      }
+
+      // Mixed hex digits (contains a–f): match hex column
+      if (/^[0-9a-f]+$/i.test(term) && /[a-f]/i.test(term)) {
+        return r.hex.toLowerCase().startsWith(term.toLowerCase());
+      }
+
+      // Control name prefix (e.g. "nu" → NUL, "lf" → LF)
+      if (r.name && r.name.toLowerCase().startsWith(term)) return true;
+
+      // Pure decimal digits: match dec column by prefix
+      if (/^\d+$/.test(term)) return r.dec.startsWith(term);
+
+      return false;
+    }
+
+    // ── DOM ──────────────────────────────────────────────────────────────────
+    const tbody    = document.getElementById('tbody');
+    const searchEl = document.getElementById('search');
+    const noRows   = document.getElementById('no-rows');
+    const extChk   = document.getElementById('show-ext');
+
+    let ALL_ROWS = buildRows(127);
+
+    function renderRows() {
+      const showExt = extChk.checked;
+      const rows = showExt ? buildRows(255) : buildRows(127);
+      ALL_ROWS = rows;
+      tbody.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.dataset.n = r.n;
+        const charClass = r.isCtrl ? 'td-ctrl' : (r.isExt ? 'td-ext' : 'td-char');
+        tr.innerHTML =
+          `<td class="${charClass}">${r.charDisp}</td>` +
+          `<td>${r.dec}</td>` +
+          `<td>${r.hex}</td>` +
+          `<td>${r.oct}</td>` +
+          `<td>${r.bin}</td>` +
+          `<td class="td-name">${r.name}</td>`;
+        frag.appendChild(tr);
+      });
+      tbody.appendChild(frag);
+      applyFilter();
+    }
+
+    function applyFilter() {
+      const term = searchEl.value.trim().toLowerCase();
+      let visible = 0;
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const r = ALL_ROWS[+tr.dataset.n];
+        if (!r) { tr.style.display = 'none'; return; }
+        const show = rowMatches(r, term);
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      noRows.style.display = visible === 0 ? '' : 'none';
+    }
+
+    searchEl.addEventListener('input', () => {
+      // Reset scroll so filtered rows (always near table top) stay in view
+      window.scrollTo(0, 0);
+      applyFilter();
+    });
+    extChk.addEventListener('change', renderRows);
+
+    // Initial render
+    renderRows();
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  </script>
+</body>
+</html>

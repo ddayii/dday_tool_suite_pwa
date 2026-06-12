@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDay Controls Tool Suite</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#263626">
+  <meta name="description" content="DDay Controls Tool Suite — number base converter and ASCII chart">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <header class="app-header">
+    <img class="header-logo" src="icons/icon-192.png" alt="">
+    <div class="header-text">
+      <div class="title">DDay Controls</div>
+      <div class="subtitle">Tool Suite</div>
+    </div>
+  </header>
+
+  <main class="content">
+    <p style="color:var(--text-muted); font-size:0.88rem;">Select a tool to open</p>
+    <div class="tile-grid">
+      <a class="tile" href="ascii-chart.html">
+        <img class="tile-icon" src="icons/ascii-icon.png" alt="">
+        <span class="tile-name">ASCII Chart</span>
+      </a>
+      <a class="tile" href="scalar.html">
+        <img class="tile-icon" src="icons/converter-icon.png" alt="">
+        <span class="tile-name">Scalar Converter</span>
+      </a>
+      <a class="tile" href="unit-converter.html">
+        <img class="tile-icon" src="icons/converter-icon.png" alt="">
+        <span class="tile-name">Unit Converter</span>
+      </a>
+    </div>
+  </main>
+
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  </script>
+</body>
+</html>

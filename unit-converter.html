@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unit Converter — DDay Controls</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#263626">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    .unit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .unit-group { display: flex; flex-direction: column; gap: 6px; }
+    .unit-group .field-label { margin-bottom: 0; }
+
+    select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 10px 12px;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8270' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,100,40,0.18); }
+
+    .result-display {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 1.15rem;
+      color: var(--accent);
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      word-break: break-all;
+    }
+    .result-display.empty { color: var(--text-muted); font-size: 0.88rem; font-family: inherit; font-style: italic; }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn:hover  { border-color: var(--accent); background: rgba(200,100,40,0.08); }
+    .btn:active { background: rgba(200,100,40,0.18); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="back-btn" href="index.html">&#8592; Back</a>
+    <img class="header-logo" src="icons/converter-icon.png" alt="">
+    <div class="header-text">
+      <div class="title">Unit Converter</div>
+      <div class="subtitle">Length · Speed · Pressure · Torque · more</div>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="card">
+
+      <!-- Category -->
+      <label class="field-label" for="cat">Category</label>
+      <select id="cat"></select>
+
+      <!-- Value input -->
+      <label class="field-label" style="margin-top:12px" for="val">Value</label>
+      <input type="text" id="val"
+             placeholder="Enter a number"
+             inputmode="decimal"
+             autocomplete="off" autocorrect="off" spellcheck="false">
+
+      <!-- From / To -->
+      <div class="unit-grid" style="margin-top:12px">
+        <div class="unit-group">
+          <label class="field-label" for="from">From</label>
+          <select id="from"></select>
+        </div>
+        <div class="unit-group">
+          <label class="field-label" for="to">To</label>
+          <select id="to"></select>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <label class="field-label">Result</label>
+      <div class="result-display empty" id="result">Enter a value to convert</div>
+
+      <!-- Buttons -->
+      <div class="btn-row">
+        <button class="btn primary" id="swap-btn">&#8644; Swap</button>
+        <button class="btn" id="clear-btn">Clear</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ── Unit data (mirrors UNIT_CONVERSIONS in dday_controls_common.py) ─────
+    // Values are conversion factors relative to each category's SI base unit.
+    const UNITS = {
+      Length: {
+        mm: 0.001, cm: 0.01, m: 1.0, km: 1000.0,
+        'in': 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344,
+      },
+      Speed: {
+        'mm/s': 0.001, 'mm/min': 1.66666666666667e-5,
+        'm/s': 1.0, 'm/min': 0.0166666666666667,
+        kph: 0.277777777777778,
+        'in/s': 0.0254, 'in/min': 4.23333333333333e-4,
+        'ft/s': 0.3048, 'ft/min': 0.00508, mph: 0.44704,
+      },
+      Pressure: {
+        psi: 6894.757293168, bar: 100000.0, mbar: 100.0,
+        kPa: 1000.0, MPa: 1000000.0, Pa: 1.0,
+        atm: 101325.0, inHg: 3386.389, mmHg: 133.322387415,
+      },
+      Torque: {
+        'N·m': 1.0, 'N·cm': 0.01,
+        'lbf·in': 0.1129848290276167, 'lbf·ft': 1.3558179483314004,
+        'ozf·in': 0.007061551814226,
+      },
+      Force: {
+        N: 1.0, kN: 1000.0, lbf: 4.4482216152605, kgf: 9.80665, ozf: 0.278013850953781,
+      },
+      Mass: {
+        mg: 0.000001, g: 0.001, kg: 1.0, oz: 0.028349523125, lb: 0.45359237,
+      },
+      Temperature: null,   // special case
+      Volume: {
+        mL: 0.001, L: 1.0, 'cm³': 0.001, 'in³': 0.016387064,
+        'ft³': 28.316846592, 'gal US': 3.785411784,
+      },
+      Area: {
+        'mm²': 0.000001, 'cm²': 0.0001, 'm²': 1.0,
+        'in²': 0.00064516, 'ft²': 0.09290304, acre: 4046.8564224,
+      },
+    };
+
+    const TEMP_UNITS = ['°C', '°F', 'K'];
+
+    function convertTemp(v, from, to) {
+      // Normalise to Celsius first
+      let c;
+      switch (from) {
+        case '°C': c = v; break;
+        case '°F': c = (v - 32) * 5 / 9; break;
+        case 'K':  c = v - 273.15; break;
+      }
+      switch (to) {
+        case '°C': return c;
+        case '°F': return c * 9 / 5 + 32;
+        case 'K':  return c + 273.15;
+      }
+    }
+
+    function convert(v, cat, from, to) {
+      if (cat === 'Temperature') return convertTemp(v, from, to);
+      const factors = UNITS[cat];
+      return (v * factors[from]) / factors[to];
+    }
+
+    function fmtResult(n) {
+      if (!Number.isFinite(n)) return '—';
+      // Use toPrecision for large/small, otherwise fixed-ish
+      const abs = Math.abs(n);
+      if (abs === 0) return '0';
+      if (abs >= 1e10 || (abs < 0.0001 && abs > 0)) return n.toPrecision(8).replace(/\.?0+$/, '');
+      const dp = abs >= 1000 ? 4 : abs >= 1 ? 6 : 8;
+      return parseFloat(n.toFixed(dp)).toLocaleString('en-US', { maximumSignificantDigits: 10 });
+    }
+
+    // ── DOM setup ────────────────────────────────────────────────────────────
+    const catEl    = document.getElementById('cat');
+    const valEl    = document.getElementById('val');
+    const fromEl   = document.getElementById('from');
+    const toEl     = document.getElementById('to');
+    const resultEl = document.getElementById('result');
+
+    // Populate categories
+    Object.keys(UNITS).forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = cat;
+      catEl.appendChild(opt);
+    });
+
+    function populateUnits() {
+      const cat = catEl.value;
+      const units = cat === 'Temperature' ? TEMP_UNITS : Object.keys(UNITS[cat]);
+      const prevFrom = fromEl.value;
+      const prevTo   = toEl.value;
+
+      [fromEl, toEl].forEach((sel, idx) => {
+        sel.innerHTML = '';
+        units.forEach((u, i) => {
+          const opt = document.createElement('option');
+          opt.value = opt.textContent = u;
+          if (i === idx) opt.selected = true; // default: from=first, to=second
+          sel.appendChild(opt);
+        });
+      });
+
+      // Restore previous selections if they still exist
+      if (units.includes(prevFrom)) fromEl.value = prevFrom;
+      if (units.includes(prevTo))   toEl.value   = prevTo;
+      if (fromEl.value === toEl.value && units.length > 1) toEl.selectedIndex = 1;
+
+      doConvert();
+    }
+
+    function doConvert() {
+      const raw = valEl.value.trim();
+      if (!raw) {
+        resultEl.textContent = 'Enter a value to convert';
+        resultEl.className = 'result-display empty';
+        return;
+      }
+      const v = parseFloat(raw);
+      if (!Number.isFinite(v)) {
+        resultEl.textContent = 'Invalid number';
+        resultEl.className = 'result-display empty';
+        return;
+      }
+      const result = convert(v, catEl.value, fromEl.value, toEl.value);
+      resultEl.textContent = fmtResult(result) + ' ' + toEl.value;
+      resultEl.className = 'result-display';
+    }
+
+    catEl.addEventListener('change', populateUnits);
+    valEl.addEventListener('input', doConvert);
+    fromEl.addEventListener('change', doConvert);
+    toEl.addEventListener('change', doConvert);
+
+    document.getElementById('swap-btn').addEventListener('click', () => {
+      const tmp = fromEl.value;
+      fromEl.value = toEl.value;
+      toEl.value = tmp;
+      doConvert();
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      valEl.value = '';
+      resultEl.textContent = 'Enter a value to convert';
+      resultEl.className = 'result-display empty';
+    });
+
+    // Init
+    populateUnits();
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  </script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scalar Converter — DDay Controls</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#263626">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <header class="app-header">
+    <a class="back-btn" href="index.html">&#8592; Back</a>
+    <img class="header-logo" src="icons/converter-icon.png" alt="">
+    <div class="header-text">
+      <div class="title">Scalar Converter</div>
+      <div class="subtitle">DEC · HEX · BIN · OCT · Bytes</div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- Input -->
+    <div class="card">
+      <label class="field-label" for="inp">Enter a value</label>
+      <input type="text" id="inp"
+             placeholder="e.g. 65, 0x41, A, 01000001"
+             autocomplete="off" autocorrect="off"
+             autocapitalize="off" spellcheck="false">
+
+      <div class="seg-control" role="group" aria-label="Input base" style="margin-top:10px">
+        <input type="radio" name="base" id="b-dec"   value="dec"   checked>
+        <label for="b-dec">DEC</label>
+        <input type="radio" name="base" id="b-hex"   value="hex">
+        <label for="b-hex">HEX</label>
+        <input type="radio" name="base" id="b-oct"   value="oct">
+        <label for="b-oct">OCT</label>
+        <input type="radio" name="base" id="b-bin"   value="bin">
+        <label for="b-bin">BIN</label>
+        <input type="radio" name="base" id="b-ascii" value="ascii">
+        <label for="b-ascii">ASCII</label>
+      </div>
+
+      <!-- Bit width + signed -->
+      <div style="display:flex; align-items:flex-start; gap:14px; margin-top:12px; flex-wrap:wrap">
+        <div>
+          <span class="field-label" style="margin-bottom:5px">Bit width</span>
+          <div class="seg-control" role="group" aria-label="Bit width">
+            <input type="radio" name="width" id="w8"  value="8"  checked>
+            <label for="w8">8-bit</label>
+            <input type="radio" name="width" id="w16" value="16">
+            <label for="w16">16-bit</label>
+            <input type="radio" name="width" id="w32" value="32">
+            <label for="w32">32-bit</label>
+          </div>
+        </div>
+        <div>
+          <span class="field-label" style="margin-bottom:5px">Mode</span>
+          <label style="display:flex; align-items:center; gap:7px; cursor:pointer; user-select:none; height:34px">
+            <input type="checkbox" id="signed" style="accent-color:var(--accent); width:16px; height:16px">
+            <span style="font-size:0.85rem; color:var(--text); font-weight:600">Signed</span>
+          </label>
+        </div>
+      </div>
+      <p id="range-label" style="font-size:0.75rem; color:var(--text-muted); margin-top:8px"></p>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="results-grid" style="display:none"></div>
+    <div id="placeholder" class="placeholder">Enter a value above to see all representations</div>
+
+  </main>
+
+  <script>
+    const CTRL = {
+      0:'NUL',1:'SOH',2:'STX',3:'ETX',4:'EOT',5:'ENQ',6:'ACK',7:'BEL',
+      8:'BS',9:'HT',10:'LF',11:'VT',12:'FF',13:'CR',14:'SO',15:'SI',
+      16:'DLE',17:'DC1',18:'DC2',19:'DC3',20:'DC4',21:'NAK',22:'SYN',23:'ETB',
+      24:'CAN',25:'EM',26:'SUB',27:'ESC',28:'FS',29:'GS',30:'RS',31:'US',127:'DEL',
+    };
+
+    function getWidth()  { return parseInt(document.querySelector('input[name=width]:checked').value); }
+    function getSigned() { return document.getElementById('signed').checked; }
+    function getBase()   { return document.querySelector('input[name=base]:checked').value; }
+
+    function maxUnsigned(bits) { return bits === 32 ? 0xFFFFFFFF : (1 << bits) - 1; }
+    function minSigned(bits)   { return -(1 << (bits - 1)); }
+    function maxSigned(bits)   { return (1 << (bits - 1)) - 1; }
+
+    function updateRangeLabel() {
+      const bits = getWidth(), signed = getSigned();
+      const lo = signed ? minSigned(bits) : 0;
+      const hi = signed ? maxSigned(bits) : maxUnsigned(bits);
+      document.getElementById('range-label').textContent =
+        `Range: ${lo.toLocaleString()} … ${hi.toLocaleString()}`;
+    }
+
+    function parseInput(raw, base) {
+      const s = raw.trim();
+      if (!s) return null;
+      const bits = getWidth(), signed = getSigned();
+      let n;
+
+      switch (base) {
+        case 'ascii':
+          if (s.length !== 1) return null;
+          n = s.charCodeAt(0);
+          break;
+        case 'dec':
+          if (!/^-?\d+$/.test(s)) return null;
+          n = parseInt(s, 10);
+          break;
+        case 'hex': {
+          const h = s.replace(/^0x/i, '');
+          if (!/^[0-9a-fA-F]+$/.test(h)) return null;
+          n = parseInt(h, 16);
+          break;
+        }
+        case 'oct':
+          if (!/^[0-7]+$/.test(s)) return null;
+          n = parseInt(s, 8);
+          break;
+        case 'bin':
+          if (!/^[01]+$/.test(s)) return null;
+          n = parseInt(s, 2);
+          break;
+        default: return null;
+      }
+
+      if (!Number.isFinite(n)) return null;
+      const lo = signed ? minSigned(bits) : 0;
+      const hi = signed ? maxSigned(bits) : maxUnsigned(bits);
+      if (n < lo || n > hi) return null;
+      return n;
+    }
+
+    function toUnsigned(n, bits) {
+      if (n >= 0) return n;
+      return bits === 32 ? n + 0x100000000 : n + (1 << bits);
+    }
+
+    function fmtBin(u, bits) {
+      return u.toString(2).padStart(bits, '0').replace(/(.{4})(?=.)/g, '$1 ');
+    }
+    function fmtHex(u, bits) {
+      return '0x' + u.toString(16).toUpperCase().padStart(bits / 4, '0');
+    }
+
+    function endianBytes(u, bits) {
+      const byteCount = bits / 8;
+      const bytes = [];
+      for (let i = 0; i < byteCount; i++) bytes.push((u >> (i * 8)) & 0xFF);
+      const fmt = b => '0x' + b.toString(16).toUpperCase().padStart(2, '0');
+      return {
+        le: bytes.map(fmt).join('  '),
+        be: [...bytes].reverse().map(fmt).join('  '),
+      };
+    }
+
+    function buildRows(n) {
+      const bits = getWidth(), signed = getSigned();
+      const u = toUnsigned(n, bits);
+      const rows = [
+        { base: 'DEC', value: n.toString(10) },
+        { base: 'HEX', value: fmtHex(u, bits) },
+        { base: 'OCT', value: u.toString(8) },
+        { base: 'BIN', value: fmtBin(u, bits), wide: true },
+      ];
+
+      if (u < 128) {
+        rows.push({ base: 'ASCII', value: u in CTRL ? CTRL[u] : String.fromCharCode(u) });
+      }
+
+      if (bits >= 16) {
+        const { le, be } = endianBytes(u, bits);
+        rows.push({ base: 'LE bytes', value: le, wide: true });
+        rows.push({ base: 'BE bytes', value: be, wide: true });
+      }
+
+      return rows;
+    }
+
+    // ── DOM ──────────────────────────────────────────────────────────────────
+    const inp         = document.getElementById('inp');
+    const resultsEl   = document.getElementById('results');
+    const placeholder = document.getElementById('placeholder');
+
+    function makeRow({ base, value, wide }) {
+      const div = document.createElement('div');
+      div.className = 'result-row';
+      if (wide) div.style.gridColumn = '1 / -1';
+      div.innerHTML =
+        `<span class="base-tag">${base}</span>` +
+        `<span class="value">${value}</span>`;
+      return div;
+    }
+
+    function update() {
+      const n = parseInput(inp.value, getBase());
+      resultsEl.innerHTML = '';
+
+      if (n === null) {
+        resultsEl.style.display = 'none';
+        placeholder.style.display = '';
+        placeholder.textContent = inp.value.trim()
+          ? 'Value out of range or invalid for ' + getBase().toUpperCase()
+          : 'Enter a value above to see all representations';
+        return;
+      }
+
+      placeholder.style.display = 'none';
+      resultsEl.style.display = '';
+      buildRows(n).forEach(r => resultsEl.appendChild(makeRow(r)));
+    }
+
+    inp.addEventListener('input', update);
+    document.querySelectorAll('input[name=base]').forEach(r  => r.addEventListener('change', update));
+    document.querySelectorAll('input[name=width]').forEach(r => r.addEventListener('change', () => { updateRangeLabel(); update(); }));
+    document.getElementById('signed').addEventListener('change', () => { updateRangeLabel(); update(); });
+
+    updateRangeLabel();
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  </script>
+</body>
+</html>
