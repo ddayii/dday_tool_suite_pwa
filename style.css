@@ -4,14 +4,14 @@
   --card:         #263626;
   --accent:       #c86428;
   --accent-hover: #d8742e;
-  --text:         #d8d0c4;
-  --text-muted:   #8a8270;
+  --text:         #ece7da;   /* primary text — brightened for readability */
+  --text-muted:   #a39a85;   /* secondary text — brightened */
   --bar:          #0b140b;
   --border:       #2e3e2e;
-  --table-bg:     #1b2c1b;   /* table base — lighter than page bg for contrast */
-  --table-alt:    #243a24;   /* alternating row stripe */
-  --table-header: #2c4029;   /* header bar — clearly elevated above rows */
-  --table-divider:#3a4d3a;   /* brighter row divider */
+  --table-bg:     #1c2e1b;   /* table base / odd rows */
+  --table-alt:    #2f4a2d;   /* alternating row stripe — clearly lighter */
+  --table-header: #375734;   /* header bar — bright, clearly elevated */
+  --table-divider:#496046;   /* visible row divider */
   --radius:       10px;
   --ease:         0.15s ease;
 }
