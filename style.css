@@ -8,6 +8,10 @@
   --text-muted:   #8a8270;
   --bar:          #0b140b;
   --border:       #2e3e2e;
+  --table-bg:     #1b2c1b;   /* table base — lighter than page bg for contrast */
+  --table-alt:    #243a24;   /* alternating row stripe */
+  --table-header: #2c4029;   /* header bar — clearly elevated above rows */
+  --table-divider:#3a4d3a;   /* brighter row divider */
   --radius:       10px;
   --ease:         0.15s ease;
 }
@@ -278,6 +282,7 @@ input[type=search]::-webkit-search-cancel-button { display: none; }
 .ascii-wrap {
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  background: var(--table-bg); /* lift table off the darker page background */
   overflow: clip; /* clip (not hidden) so sticky thead works relative to viewport */
 }
 
@@ -287,14 +292,15 @@ input[type=search]::-webkit-search-cancel-button { display: none; }
   font-size: 0.82rem;
 }
 .ascii-table thead th {
-  background: var(--bar);
-  color: var(--text-muted);
+  background: var(--table-header);
+  color: var(--text);
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   padding: 8px 10px;
   text-align: left;
+  border-bottom: 1px solid var(--table-divider);
   position: sticky;
   top: 107px;
   z-index: 10;
@@ -302,13 +308,15 @@ input[type=search]::-webkit-search-cancel-button { display: none; }
 .ascii-table thead th:first-child { border-radius: 0; }
 
 .ascii-table tbody tr {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--table-divider);
   cursor: pointer;
   transition: background var(--ease);
 }
 .ascii-table tbody tr:last-child { border-bottom: none; }
-.ascii-table tbody tr:hover  { background: rgba(200,100,40,0.09); }
-.ascii-table tbody tr:active { background: rgba(200,100,40,0.18); }
+.ascii-table tbody tr:nth-child(even) { background: var(--table-alt); }
+/* hover/active declared after the stripe rule so they win on equal specificity */
+.ascii-table tbody tr:hover  { background: rgba(216,116,46,0.22); }
+.ascii-table tbody tr:active { background: rgba(216,116,46,0.34); }
 .ascii-table td {
   padding: 7px 10px;
   font-family: 'Consolas', 'Courier New', monospace;
