@@ -1,4 +1,4 @@
-const CACHE = 'dday-controls-v9';
+const CACHE = 'dday-controls-v10';
 const ASSETS = [
   './',
   './index.html',

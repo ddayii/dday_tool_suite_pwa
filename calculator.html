@@ -55,6 +55,120 @@
     .note.error { display: block; background: rgba(200,60,40,0.16); color: #ffb3a0; border: 1px solid rgba(200,60,40,0.4); }
     .note.warn  { display: block; background: rgba(200,150,40,0.14); color: #f0cf94; border: 1px solid rgba(200,150,40,0.38); }
 
+    /* ── Calculator display and keypad ─────────────────────────────────── */
+    .calc-display {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      color: var(--text);
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 1.6rem;
+      font-weight: 600;
+      text-align: right;
+      padding: 6px 4px 12px;
+      outline: none;
+      overflow-x: auto;
+    }
+    .calc-display:focus { border-bottom-color: var(--accent); box-shadow: none; }
+
+    .base-list { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+
+    .base-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      user-select: none;
+      transition: background var(--ease), border-color var(--ease);
+    }
+    .base-row:hover { background: rgba(200,100,40,0.06); }
+    /* The active row is the base the display is being read in. */
+    .base-row.active { background: rgba(200,100,40,0.12); border-color: var(--accent); }
+    .base-row .tag {
+      width: 40px;
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
+    .base-row.active .tag { color: var(--accent); }
+    .base-row .val {
+      flex: 1;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.92rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .row-copy {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1;
+      opacity: 0.5;
+      padding: 5px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .row-copy:focus-visible { outline: 2px solid var(--accent); }
+    .row-copy:hover { color: var(--accent); opacity: 1; background: rgba(200,100,40,0.12); }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .keypad.small { margin-bottom: 6px; }
+    .keypad.four { grid-template-columns: repeat(4, 1fr); }
+
+    .calc-display.entry { font-size: 1.15rem; color: var(--text-muted); border-bottom: none; }
+
+    .calc-result {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 1.9rem;
+      font-weight: 700;
+      text-align: right;
+      color: var(--text);
+      padding: 2px 4px 10px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .key {
+      padding: 15px 0;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1.02rem;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color var(--ease), background var(--ease);
+    }
+    .key:hover:not(:disabled) { border-color: var(--accent); background: rgba(200,100,40,0.08); }
+    .key:active:not(:disabled) { background: rgba(200,100,40,0.2); }
+    .key:disabled { opacity: 0.28; cursor: default; }
+    .key.sm { padding: 9px 0; font-size: 0.76rem; letter-spacing: 0.04em; }
+    .key.op { color: var(--accent); }
+    .key.equals {
+      grid-column: span 2;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .key.equals.one { grid-column: span 1; }
+    .key.equals:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
     .mode { display: none; }
     .mode.active { display: block; }
 
@@ -77,15 +191,17 @@
     <img class="header-logo" src="icons/calculator-icon.png" alt="">
     <div class="header-text">
       <div class="title">Engineering Calculator</div>
-      <div class="subtitle">Base · Analog · Motor · Encoder</div>
+      <div class="subtitle">Standard · Programmer · Analog · Motor</div>
     </div>
   </header>
 
   <main class="content">
 
     <div class="seg-control" role="group" aria-label="Calculator mode" style="margin-top:0">
-      <input type="radio" name="mode" id="m-calc" value="calc" checked>
-      <label for="m-calc">Base Math</label>
+      <input type="radio" name="mode" id="m-standard" value="standard" checked>
+      <label for="m-standard">Standard</label>
+      <input type="radio" name="mode" id="m-calc" value="calc">
+      <label for="m-calc">Programmer</label>
       <input type="radio" name="mode" id="m-analog" value="analog">
       <label for="m-analog">Analog</label>
       <input type="radio" name="mode" id="m-ohms" value="ohms">
@@ -96,63 +212,184 @@
       <label for="m-encoder">Encoder</label>
     </div>
 
-    <!-- ══ BASE MATH ═══════════════════════════════════════════════════════ -->
-    <section class="mode active" id="mode-calc" style="margin-top:14px">
-      <div class="card">
-        <label class="field-label" for="expr">Expression</label>
-        <input type="text" id="expr"
-               placeholder="e.g. (0x1F &lt;&lt; 4) | 3"
+    <!-- ══ STANDARD ════════════════════════════════════════════════════════ -->
+    <section class="mode active" id="mode-standard" style="margin-top:14px">
+      <div class="card" style="padding-bottom:14px">
+        <input type="text" id="std-expr" class="calc-display entry"
+               value="0"
                autocomplete="off" autocorrect="off"
-               autocapitalize="off" spellcheck="false">
+               autocapitalize="off" spellcheck="false"
+               aria-label="Expression">
+        <div class="calc-result" id="std-result">0</div>
+        <div class="note" id="std-note"></div>
+      </div>
 
-        <span class="field-label" style="margin-top:12px; margin-bottom:5px">Input base</span>
-        <div class="seg-control" role="group" aria-label="Input base" style="margin-top:0">
-          <input type="radio" name="cbase" id="cb-dec" value="DEC" checked>
-          <label for="cb-dec">DEC</label>
-          <input type="radio" name="cbase" id="cb-hex" value="HEX">
-          <label for="cb-hex">HEX</label>
-          <input type="radio" name="cbase" id="cb-oct" value="OCT">
-          <label for="cb-oct">OCT</label>
-          <input type="radio" name="cbase" id="cb-bin" value="BIN">
-          <label for="cb-bin">BIN</label>
+      <div class="card">
+        <div class="keypad small">
+          <button class="key sm" type="button" data-smem="MC">MC</button>
+          <button class="key sm" type="button" data-smem="MR">MR</button>
+          <button class="key sm" type="button" data-smem="MS">MS</button>
+          <button class="key sm" type="button" data-smem="M+">M+</button>
+          <button class="key sm" type="button" data-smem="M-">M&minus;</button>
         </div>
 
-        <div style="display:flex; align-items:flex-start; gap:14px; margin-top:12px; flex-wrap:wrap">
-          <div>
-            <span class="field-label" style="margin-bottom:5px">Word size</span>
-            <div class="seg-control" role="group" aria-label="Word size" style="margin-top:0">
-              <input type="radio" name="cwidth" id="cw8" value="8">
-              <label for="cw8">8</label>
-              <input type="radio" name="cwidth" id="cw16" value="16" checked>
-              <label for="cw16">16</label>
-              <input type="radio" name="cwidth" id="cw32" value="32">
-              <label for="cw32">32</label>
-              <input type="radio" name="cwidth" id="cw64" value="64">
-              <label for="cw64">64</label>
-            </div>
+        <div class="keypad four">
+          <button class="key op" type="button" data-sins=" % " title="Remainder after division">mod</button>
+          <button class="key op" type="button" data-sact="sqrt">&radic;</button>
+          <button class="key op" type="button" data-sact="square">x&sup2;</button>
+          <button class="key op" type="button" data-sact="inverse">1/x</button>
+
+          <button class="key op" type="button" data-sact="clearentry">CE</button>
+          <button class="key op" type="button" data-sact="clear">C</button>
+          <button class="key op" type="button" data-sact="back">&#9003;</button>
+          <button class="key op" type="button" data-sins=" / ">&divide;</button>
+
+          <button class="key" type="button" data-sins="7">7</button>
+          <button class="key" type="button" data-sins="8">8</button>
+          <button class="key" type="button" data-sins="9">9</button>
+          <button class="key op" type="button" data-sins=" * ">&times;</button>
+
+          <button class="key" type="button" data-sins="4">4</button>
+          <button class="key" type="button" data-sins="5">5</button>
+          <button class="key" type="button" data-sins="6">6</button>
+          <button class="key op" type="button" data-sins=" - ">&minus;</button>
+
+          <button class="key" type="button" data-sins="1">1</button>
+          <button class="key" type="button" data-sins="2">2</button>
+          <button class="key" type="button" data-sins="3">3</button>
+          <button class="key op" type="button" data-sins=" + ">+</button>
+
+          <button class="key op" type="button" data-sact="negate">&plusmn;</button>
+          <button class="key" type="button" data-sins="0">0</button>
+          <button class="key" type="button" data-sins=".">.</button>
+          <button class="key equals one" type="button" data-sact="equals">=</button>
+        </div>
+
+        <p class="hint">
+          Type into the display or use the keys. Parentheses, <code>^</code> for powers and
+          <code>sqrt()</code> all work when typed. <code>mod</code> is the remainder after
+          division. Results are rounded to 12 significant digits, so 0.1 + 0.2 reads as 0.3.
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ BASE MATH ═══════════════════════════════════════════════════════ -->
+    <section class="mode" id="mode-calc" style="margin-top:14px">
+      <div class="card" style="padding-bottom:12px">
+
+        <!-- Display. Editable, so the keypad and the keyboard both work. -->
+        <input type="text" id="expr" class="calc-display"
+               value="0"
+               autocomplete="off" autocorrect="off"
+               autocapitalize="off" spellcheck="false"
+               aria-label="Expression">
+
+        <!-- Live value in all four bases. Click a row to enter in that base. -->
+        <div class="base-list">
+          <div class="base-row active" data-base="HEX" role="button" tabindex="0">
+            <span class="tag">HEX</span><span class="val" id="row-HEX">0</span>
+            <button class="row-copy" type="button" data-copy="HEX" aria-label="Copy hex value">&#10697;</button>
           </div>
-          <div>
-            <span class="field-label" style="margin-bottom:5px">Mode</span>
-            <label class="checkline" style="margin-top:0; height:34px">
-              <input type="checkbox" id="csigned">
-              <span>Signed</span>
-            </label>
+          <div class="base-row" data-base="DEC" role="button" tabindex="0">
+            <span class="tag">DEC</span><span class="val" id="row-DEC">0</span>
+            <button class="row-copy" type="button" data-copy="DEC" aria-label="Copy decimal value">&#10697;</button>
+          </div>
+          <div class="base-row" data-base="OCT" role="button" tabindex="0">
+            <span class="tag">OCT</span><span class="val" id="row-OCT">0</span>
+            <button class="row-copy" type="button" data-copy="OCT" aria-label="Copy octal value">&#10697;</button>
+          </div>
+          <div class="base-row" data-base="BIN" role="button" tabindex="0">
+            <span class="tag">BIN</span><span class="val" id="row-BIN">0</span>
+            <button class="row-copy" type="button" data-copy="BIN" aria-label="Copy binary value">&#10697;</button>
           </div>
         </div>
 
-        <p class="hint" id="calc-range"></p>
+        <div class="seg-control" role="group" aria-label="Word size" style="margin-top:12px">
+          <input type="radio" name="cwidth" id="cw8" value="8">
+          <label for="cw8">BYTE</label>
+          <input type="radio" name="cwidth" id="cw16" value="16" checked>
+          <label for="cw16">WORD</label>
+          <input type="radio" name="cwidth" id="cw32" value="32">
+          <label for="cw32">DWORD</label>
+          <input type="radio" name="cwidth" id="cw64" value="64">
+          <label for="cw64">QWORD</label>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+          <label class="checkline">
+            <input type="checkbox" id="csigned">
+            <span>Signed</span>
+          </label>
+          <p class="hint" id="calc-range" style="margin-top:12px"></p>
+        </div>
+
         <div class="note" id="calc-note"></div>
       </div>
 
-      <div id="calc-results" class="results-grid" style="display:none"></div>
-      <div id="calc-placeholder" class="placeholder">Enter an expression to see it in every base</div>
-
       <div class="card">
-        <p class="hint" style="margin-top:0">
-          Operators <code>+ - * / % &amp; | ^ ~ &lt;&lt; &gt;&gt;</code> and parentheses, with C precedence.
-          Division truncates toward zero and the remainder takes the sign of the dividend, matching
-          structured text. Bare numbers read in the selected base; <code>0x</code>, <code>0o</code> and
-          <code>0b</code> override it. Every step wraps to the chosen word size.
+        <!-- Memory -->
+        <div class="keypad small">
+          <button class="key sm" type="button" data-mem="MC">MC</button>
+          <button class="key sm" type="button" data-mem="MR">MR</button>
+          <button class="key sm" type="button" data-mem="MS">MS</button>
+          <button class="key sm" type="button" data-mem="M+">M+</button>
+          <button class="key sm" type="button" data-mem="M-">M&minus;</button>
+        </div>
+
+        <!-- Bitwise -->
+        <div class="keypad small">
+          <button class="key sm op" type="button" data-ins=" &amp; ">AND</button>
+          <button class="key sm op" type="button" data-ins=" | ">OR</button>
+          <button class="key sm op" type="button" data-ins=" ^ ">XOR</button>
+          <button class="key sm op" type="button" data-ins="~">NOT</button>
+          <button class="key sm op" type="button" data-ins=" % ">MOD</button>
+        </div>
+
+        <!-- Main keypad, laid out like the Windows programmer keypad -->
+        <div class="keypad">
+          <button class="key hexkey" type="button" data-digit="A">A</button>
+          <button class="key op" type="button" data-ins=" &lt;&lt; ">&laquo;</button>
+          <button class="key op" type="button" data-ins=" &gt;&gt; ">&raquo;</button>
+          <button class="key op" type="button" data-act="clear">C</button>
+          <button class="key op" type="button" data-act="back">&#9003;</button>
+
+          <button class="key hexkey" type="button" data-digit="B">B</button>
+          <button class="key op" type="button" data-ins="(">(</button>
+          <button class="key op" type="button" data-ins=")">)</button>
+          <button class="key op" type="button" data-ins=" % ">%</button>
+          <button class="key op" type="button" data-ins=" / ">&divide;</button>
+
+          <button class="key hexkey" type="button" data-digit="C">C</button>
+          <button class="key" type="button" data-digit="7">7</button>
+          <button class="key" type="button" data-digit="8">8</button>
+          <button class="key" type="button" data-digit="9">9</button>
+          <button class="key op" type="button" data-ins=" * ">&times;</button>
+
+          <button class="key hexkey" type="button" data-digit="D">D</button>
+          <button class="key" type="button" data-digit="4">4</button>
+          <button class="key" type="button" data-digit="5">5</button>
+          <button class="key" type="button" data-digit="6">6</button>
+          <button class="key op" type="button" data-ins=" - ">&minus;</button>
+
+          <button class="key hexkey" type="button" data-digit="E">E</button>
+          <button class="key" type="button" data-digit="1">1</button>
+          <button class="key" type="button" data-digit="2">2</button>
+          <button class="key" type="button" data-digit="3">3</button>
+          <button class="key op" type="button" data-ins=" + ">+</button>
+
+          <button class="key hexkey" type="button" data-digit="F">F</button>
+          <button class="key op" type="button" data-act="negate">&plusmn;</button>
+          <button class="key" type="button" data-digit="0">0</button>
+          <button class="key" type="button" id="prog-point" disabled
+                  title="Whole numbers only here — use Standard for decimals">.</button>
+          <button class="key equals one" type="button" data-act="equals">=</button>
+        </div>
+
+        <p class="hint">
+          Whole numbers only — bases and word sizes have no meaning for 2.5, so the decimal
+          point is disabled here. Use <strong>Standard</strong> for decimal arithmetic.
+          Operators follow C precedence; division truncates toward zero and the remainder takes
+          the sign of the dividend, matching structured text. Every step wraps to the word size.
         </p>
       </div>
     </section>
@@ -522,58 +759,270 @@
       });
     });
 
+    // ── Standard calculator ──────────────────────────────────────────────────
+    // A plain decimal calculator. Kept separate from Programmer because bases,
+    // word sizes and two's-complement wrapping have no meaning for 2.5.
+
+    let stdLast = 0;
+    let stdMemory = 0;
+
+    function updateStandard() {
+      const text = $('std-expr').value;
+
+      if (!text.trim()) {
+        $('std-result').textContent = '0';
+        stdLast = 0;
+        setNote('std-note', '');
+        return;
+      }
+
+      try {
+        stdLast = C.evaluateDecimal(text);
+        $('std-result').textContent = C.formatDecimalResult(stdLast);
+        setNote('std-note', '');
+      } catch (err) {
+        $('std-result').textContent = '—';
+        setNote('std-note', err.message, 'error');
+      }
+    }
+
+    function insertStandard(text) {
+      const field = $('std-expr');
+      // A lone leading zero is a placeholder, not something to build on —
+      // except before a point, where "0." is exactly what you want.
+      if (field.value === '0' && /^[0-9(]/.test(text)) field.value = '';
+      field.value += text;
+      updateStandard();
+    }
+
+    function standardAction(action) {
+      const field = $('std-expr');
+      const text = field.value;
+
+      if (action === 'clear') {
+        field.value = '0';
+      } else if (action === 'clearentry') {
+        // CE drops the number being typed, leaving the rest of the sum.
+        field.value = text.replace(/[\d.]+\s*$/, '').trim() || '0';
+      } else if (action === 'back') {
+        field.value = text.slice(0, -1).trim() || '0';
+      } else if (action === 'negate') {
+        const wrapped = /^-\((.*)\)$/.exec(text);
+        field.value = wrapped ? wrapped[1] : `-(${text})`;
+      } else if (action === 'sqrt') {
+        field.value = `sqrt(${text})`;
+      } else if (action === 'square') {
+        field.value = `(${text})^2`;
+      } else if (action === 'inverse') {
+        field.value = `1/(${text})`;
+      } else if (action === 'equals') {
+        try {
+          field.value = C.formatDecimalResult(C.evaluateDecimal(text));
+        } catch (err) {
+          setNote('std-note', err.message, 'error');
+          return;
+        }
+      }
+
+      updateStandard();
+    }
+
+    function standardMemoryAction(action) {
+      if (action === 'MC') { stdMemory = 0; showToast('Memory cleared'); return; }
+      if (action === 'MR') { insertStandard(C.formatDecimalResult(stdMemory)); return; }
+      if (action === 'MS') stdMemory = stdLast;
+      else if (action === 'M+') stdMemory += stdLast;
+      else stdMemory -= stdLast;
+
+      showToast('Memory ' + C.formatDecimalResult(stdMemory));
+    }
+
+    document.querySelectorAll('.key[data-sins]').forEach(key =>
+      key.addEventListener('click', () => insertStandard(key.dataset.sins)));
+    document.querySelectorAll('.key[data-sact]').forEach(key =>
+      key.addEventListener('click', () => standardAction(key.dataset.sact)));
+    document.querySelectorAll('.key[data-smem]').forEach(key =>
+      key.addEventListener('click', () => standardMemoryAction(key.dataset.smem)));
+
+    $('std-expr').addEventListener('input', updateStandard);
+    $('std-expr').addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); standardAction('equals'); }
+    });
+
+    updateStandard();
+
     // ── Base math ────────────────────────────────────────────────────────────
-    const calcBase   = () => document.querySelector('input[name=cbase]:checked').value;
-    const calcWidth  = () => parseInt(document.querySelector('input[name=cwidth]:checked').value, 10);
+    // The keypad and the keyboard both write into one expression string; the
+    // four base rows are just that string evaluated and re-rendered.
+
+    const DIGIT_ORDER = '0123456789ABCDEF';
+    const BASE_DIGITS_ALLOWED = { HEX: 16, DEC: 10, OCT: 8, BIN: 2 };
+    const BASE_RADIX = { HEX: 16, OCT: 8, BIN: 2 };
+
+    let calcBase = 'HEX';
+    let calcMemory = 0n;
+
+    const calcWidth = () => parseInt(document.querySelector('input[name=cwidth]:checked').value, 10);
     const calcSigned = () => $('csigned').checked;
+
+    // A value written so it can be typed straight back in — no padding, no
+    // digit grouping, which the tokenizer would read as two separate numbers.
+    function literalInBase(value, base, bits) {
+      if (base === 'DEC') return value.toString(10);
+      const unsigned = value < 0n ? value + (1n << BigInt(bits)) : value;
+      return unsigned.toString(BASE_RADIX[base]).toUpperCase();
+    }
 
     function updateCalcRange() {
       const bits = BigInt(calcWidth());
       const lo = calcSigned() ? -(1n << (bits - 1n)) : 0n;
       const hi = calcSigned() ? (1n << (bits - 1n)) - 1n : (1n << bits) - 1n;
-      $('calc-range').textContent = `Range: ${lo.toLocaleString()} … ${hi.toLocaleString()}`;
+      $('calc-range').textContent = `${calcWidth()}-bit range ${lo.toLocaleString()} … ${hi.toLocaleString()}`;
     }
 
+    // Grey out digits that do not exist in the base being entered.
+    function updateKeypadDigits() {
+      const allowed = BASE_DIGITS_ALLOWED[calcBase];
+      document.querySelectorAll('.key[data-digit]').forEach(key => {
+        key.disabled = DIGIT_ORDER.indexOf(key.dataset.digit) >= allowed;
+      });
+    }
+
+    function setCalcBase(base) {
+      if (base !== calcBase) {
+        // Carry the value across rather than re-reading the same characters in
+        // a base where they may not even be digits — 1F is not a decimal.
+        try {
+          const current = C.evaluateExpression($('expr').value, calcBase, calcWidth(), calcSigned());
+          $('expr').value = literalInBase(current.value, base, calcWidth());
+        } catch (err) {
+          // Text that does not parse is left alone for the user to fix.
+        }
+      }
+
+      calcBase = base;
+      document.querySelectorAll('.base-row').forEach(row =>
+        row.classList.toggle('active', row.dataset.base === base));
+      updateKeypadDigits();
+      updateCalc();
+    }
+
+    let lastCalcValue = 0n;
+
     function updateCalc() {
+      updateCalcRange();
       const text = $('expr').value;
       const bits = calcWidth();
+      const blank = !text.trim();
 
-      if (!text.trim()) {
+      if (blank) {
+        BASES_ORDER.forEach(base => { $('row-' + base).textContent = '0'; });
+        lastCalcValue = 0n;
         setNote('calc-note', '');
-        renderRows('calc-results', 'calc-placeholder', []);
-        $('calc-placeholder').textContent = 'Enter an expression to see it in every base';
         return;
       }
 
       let result;
       try {
-        result = C.evaluateExpression(text, calcBase(), bits, calcSigned());
+        result = C.evaluateExpression(text, calcBase, bits, calcSigned());
       } catch (err) {
+        BASES_ORDER.forEach(base => { $('row-' + base).textContent = '—'; });
         setNote('calc-note', err.message, 'error');
-        renderRows('calc-results', 'calc-placeholder', []);
-        $('calc-placeholder').textContent = 'Fix the expression to see a result';
         return;
       }
 
+      lastCalcValue = result.value;
+      BASES_ORDER.forEach(base => {
+        $('row-' + base).textContent = C.formatInBase(result.value, base, bits);
+      });
+
       setNote('calc-note', result.overflow
         ? `Result wrapped to ${bits} bits — the full value did not fit.` : '', 'warn');
-
-      renderRows('calc-results', 'calc-placeholder', [
-        { tag: 'DEC', value: C.formatInBase(result.value, 'DEC', bits) },
-        { tag: 'HEX', value: C.formatInBase(result.value, 'HEX', bits) },
-        { tag: 'OCT', value: C.formatInBase(result.value, 'OCT', bits) },
-        { tag: 'BIN', value: C.formatInBase(result.value, 'BIN', bits), wide: true },
-      ]);
     }
 
-    $('expr').addEventListener('input', updateCalc);
-    document.querySelectorAll('input[name=cbase]').forEach(r => r.addEventListener('change', updateCalc));
-    document.querySelectorAll('input[name=cwidth]').forEach(r => r.addEventListener('change', () => {
-      updateCalcRange();
+    const BASES_ORDER = ['HEX', 'DEC', 'OCT', 'BIN'];
+
+    function insertCalc(text) {
+      const field = $('expr');
+      // A lone leading zero is a placeholder, not something to build on.
+      if (field.value === '0' && /^[0-9A-F(~]/.test(text)) field.value = '';
+      field.value += text;
       updateCalc();
-    }));
-    $('csigned').addEventListener('change', () => { updateCalcRange(); updateCalc(); });
-    updateCalcRange();
+    }
+
+    function calcAction(action) {
+      const field = $('expr');
+
+      if (action === 'clear') {
+        field.value = '0';
+      } else if (action === 'back') {
+        field.value = field.value.replace(/\s*\S\s*$/, '') || '0';
+      } else if (action === 'negate') {
+        // Wrap or unwrap, so pressing it twice returns the original text.
+        const wrapped = /^-\((.*)\)$/.exec(field.value);
+        field.value = wrapped ? wrapped[1] : `-(${field.value})`;
+      } else if (action === 'equals') {
+        try {
+          const result = C.evaluateExpression(field.value, calcBase, calcWidth(), calcSigned());
+          field.value = literalInBase(result.value, calcBase, calcWidth());
+        } catch (err) {
+          setNote('calc-note', err.message, 'error');
+          return;
+        }
+      }
+
+      updateCalc();
+    }
+
+    function calcMemoryAction(action) {
+      const bits = calcWidth();
+      const signed = calcSigned();
+
+      if (action === 'MC') { calcMemory = 0n; showToast('Memory cleared'); return; }
+      if (action === 'MR') { insertCalc(literalInBase(calcMemory, calcBase, bits)); return; }
+      if (action === 'MS') { calcMemory = lastCalcValue; showToast('Stored ' + C.formatInBase(calcMemory, 'DEC', bits)); return; }
+
+      calcMemory = C.wrapToWord(
+        action === 'M+' ? calcMemory + lastCalcValue : calcMemory - lastCalcValue, bits, signed);
+      showToast('Memory ' + C.formatInBase(calcMemory, 'DEC', bits));
+    }
+
+    document.querySelectorAll('.base-row').forEach(row => {
+      row.addEventListener('click', event => {
+        if (event.target.closest('.row-copy')) return;   // copy button handles itself
+        setCalcBase(row.dataset.base);
+      });
+      row.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setCalcBase(row.dataset.base);
+        }
+      });
+    });
+
+    document.querySelectorAll('.row-copy').forEach(button => {
+      button.addEventListener('click', () => copyText($('row-' + button.dataset.copy).textContent));
+    });
+
+    document.querySelectorAll('.key[data-digit]').forEach(key =>
+      key.addEventListener('click', () => insertCalc(key.dataset.digit)));
+    document.querySelectorAll('.key[data-ins]').forEach(key =>
+      key.addEventListener('click', () => insertCalc(key.dataset.ins)));
+    document.querySelectorAll('.key[data-act]').forEach(key =>
+      key.addEventListener('click', () => calcAction(key.dataset.act)));
+    document.querySelectorAll('.key[data-mem]').forEach(key =>
+      key.addEventListener('click', () => calcMemoryAction(key.dataset.mem)));
+
+    $('expr').addEventListener('input', updateCalc);
+    $('expr').addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); calcAction('equals'); }
+    });
+
+    document.querySelectorAll('input[name=cwidth]').forEach(radio =>
+      radio.addEventListener('change', updateCalc));
+    $('csigned').addEventListener('change', updateCalc);
+
+    setCalcBase('HEX');
 
     // ── Analog scaling ───────────────────────────────────────────────────────
     const presetSelect = $('a-preset');

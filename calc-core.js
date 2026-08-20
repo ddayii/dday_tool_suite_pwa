@@ -277,6 +277,253 @@
   }
 
   // ==========================================================================
+  // DECIMAL EXPRESSION EVALUATOR
+  // ==========================================================================
+  //
+  // The base evaluator above is deliberately integer-only: bases, word sizes
+  // and two's-complement wrapping have no meaning for 2.5. A plain calculator
+  // needs real numbers, so it gets its own evaluator rather than bending that
+  // one. Mirrors evaluate_decimal in dday_engineering.py.
+
+  const DECIMAL_FUNCTIONS = {
+    sqrt: Math.sqrt,
+    abs: Math.abs,
+  };
+
+  // Lowest binding first; power is handled separately because it is right
+  // associative and binds tighter than unary minus.
+  const DECIMAL_PRECEDENCE = [['+', '-'], ['*', '/', '%']];
+
+  function isDigit(ch) { return ch >= '0' && ch <= '9'; }
+  function isLetter(ch) { return /[a-z]/i.test(ch); }
+
+  // Split decimal expression text into number, operator and function tokens.
+  function tokenizeDecimal(text) {
+    const tokens = [];
+    let index = 0;
+
+    while (index < text.length) {
+      const char = text[index];
+
+      if (/\s/.test(char) || char === '_' || char === ',') { index += 1; continue; }
+
+      if (char === '(' || char === ')') {
+        tokens.push({ kind: 'paren', value: char });
+        index += 1;
+        continue;
+      }
+
+      if ('+-*/%^'.indexOf(char) !== -1) {
+        tokens.push({ kind: 'op', value: char });
+        index += 1;
+        continue;
+      }
+
+      if (isDigit(char) || char === '.') {
+        const start = index;
+        let seenPoint = false;
+
+        while (index < text.length) {
+          const here = text[index];
+          if (isDigit(here) || here === '_' || here === ',') index += 1;
+          else if (here === '.' && !seenPoint) { seenPoint = true; index += 1; }
+          else break;
+        }
+
+        // An exponent only counts when digits actually follow it, so that
+        // "2e" is a clear error rather than a silently truncated number.
+        if (index < text.length && (text[index] === 'e' || text[index] === 'E')) {
+          let after = index + 1;
+          if (after < text.length && (text[after] === '+' || text[after] === '-')) after += 1;
+          if (after < text.length && isDigit(text[after])) {
+            index = after;
+            while (index < text.length && isDigit(text[index])) index += 1;
+          }
+        }
+
+        const literal = text.slice(start, index).replace(/[_,]/g, '');
+        if (literal === '.') throw new CalcError('A lone decimal point is not a number.');
+
+        const value = Number(literal);
+        if (!Number.isFinite(value)) throw new CalcError("'" + literal + "' is not a number.");
+
+        tokens.push({ kind: 'num', value: value });
+        continue;
+      }
+
+      if (isLetter(char)) {
+        const start = index;
+        while (index < text.length && isLetter(text[index])) index += 1;
+
+        const name = text.slice(start, index).toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(DECIMAL_FUNCTIONS, name)) {
+          throw new CalcError("Unknown function '" + name + "'.");
+        }
+
+        tokens.push({ kind: 'func', value: name });
+        continue;
+      }
+
+      throw new CalcError("Unexpected character '" + char + "'.");
+    }
+
+    return tokens;
+  }
+
+  function DecimalParser(tokens) {
+    this.tokens = tokens;
+    this.position = 0;
+  }
+
+  DecimalParser.prototype.peek = function () {
+    return this.position < this.tokens.length ? this.tokens[this.position] : null;
+  };
+
+  DecimalParser.prototype.parseBinary = function (level) {
+    if (level >= DECIMAL_PRECEDENCE.length) return this.parseUnary();
+
+    const operators = DECIMAL_PRECEDENCE[level];
+    let value = this.parseBinary(level + 1);
+
+    for (;;) {
+      const token = this.peek();
+      if (!token || token.kind !== 'op' || operators.indexOf(token.value) === -1) return value;
+      this.position += 1;
+      value = this.apply(token.value, value, this.parseBinary(level + 1));
+    }
+  };
+
+  DecimalParser.prototype.apply = function (operator, left, right) {
+    switch (operator) {
+      case '+': return left + right;
+      case '-': return left - right;
+      case '*': return left * right;
+      case '/':
+        if (right === 0) throw new CalcError('Division by zero.');
+        return left / right;
+      case '%':
+        if (right === 0) throw new CalcError('Division by zero.');
+        // JavaScript's % already takes the sign of the dividend, matching the
+        // fmod the Python build uses.
+        return left % right;
+      default:
+        throw new CalcError("Unknown operator '" + operator + "'.");
+    }
+  };
+
+  DecimalParser.prototype.parseUnary = function () {
+    const token = this.peek();
+    if (token && token.kind === 'op' && (token.value === '-' || token.value === '+')) {
+      this.position += 1;
+      const operand = this.parseUnary();
+      return token.value === '-' ? -operand : operand;
+    }
+    return this.parsePower();
+  };
+
+  DecimalParser.prototype.parsePower = function () {
+    const base = this.parsePrimary();
+
+    const token = this.peek();
+    if (token && token.kind === 'op' && token.value === '^') {
+      this.position += 1;
+      const result = Math.pow(base, this.parseUnary());
+      if (Number.isNaN(result)) throw new CalcError('That power has no real answer.');
+      return result;
+    }
+
+    return base;
+  };
+
+  DecimalParser.prototype.parsePrimary = function () {
+    const token = this.peek();
+    if (!token) throw new CalcError('Expression ends unexpectedly.');
+
+    if (token.kind === 'num') {
+      this.position += 1;
+      return token.value;
+    }
+
+    if (token.kind === 'func') {
+      this.position += 1;
+      const opening = this.peek();
+      if (!opening || opening.value !== '(') {
+        throw new CalcError("'" + token.value + "' needs a value in parentheses.");
+      }
+
+      this.position += 1;
+      const argument = this.parseBinary(0);
+
+      const closing = this.peek();
+      if (!closing || closing.value !== ')') throw new CalcError('Missing closing parenthesis.');
+      this.position += 1;
+
+      const result = DECIMAL_FUNCTIONS[token.value](argument);
+      if (Number.isNaN(result)) {
+        throw new CalcError("'" + token.value + "' has no real answer for that value.");
+      }
+      return result;
+    }
+
+    if (token.kind === 'paren' && token.value === '(') {
+      this.position += 1;
+      const value = this.parseBinary(0);
+
+      const closing = this.peek();
+      if (!closing || closing.value !== ')') throw new CalcError('Missing closing parenthesis.');
+      this.position += 1;
+      return value;
+    }
+
+    if (token.kind === 'paren') throw new CalcError('Unmatched closing parenthesis.');
+    throw new CalcError("Operator '" + token.value + "' is missing a value.");
+  };
+
+  // Evaluate a decimal expression.
+  function evaluateDecimal(text) {
+    if (!text.trim()) throw new CalcError('No expression entered.');
+
+    const tokens = tokenizeDecimal(text);
+    if (!tokens.length) throw new CalcError('No expression entered.');
+
+    const parser = new DecimalParser(tokens);
+    const value = parser.parseBinary(0);
+
+    const remaining = parser.peek();
+    if (remaining) {
+      if (remaining.kind === 'paren') throw new CalcError('Unmatched closing parenthesis.');
+      throw new CalcError("Unexpected trailing '" + remaining.value + "'.");
+    }
+
+    if (!Number.isFinite(value) && !Number.isNaN(value)) {
+      throw new CalcError('Result is too large to show.');
+    }
+
+    return value;
+  }
+
+  // Format a decimal result for a calculator display, rounding away binary
+  // representation noise so 0.1 + 0.2 reads as 0.3.
+  function formatDecimalResult(value, significant) {
+    const digits = significant === undefined ? 12 : significant;
+
+    if (Number.isNaN(value)) return '—';
+    if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
+
+    const cleaned = Number(value.toPrecision(digits));
+    if (cleaned === 0) return '0';
+
+    const magnitude = Math.abs(cleaned);
+    if (magnitude >= 1e16 || magnitude < 1e-6) {
+      const text = cleaned.toExponential(digits - 1);
+      const exponent = text.indexOf('e');
+      return trimZeros(text.slice(0, exponent)) + text.slice(exponent);
+    }
+
+    return String(cleaned);
+  }
+
+  // ==========================================================================
   // ANALOG SCALING
   // ==========================================================================
   //
@@ -588,5 +835,9 @@
     countsForDistance: countsForDistance,
     pulseFrequency: pulseFrequency,
     formatNumber: formatNumber,
+    DECIMAL_FUNCTIONS: DECIMAL_FUNCTIONS,
+    tokenizeDecimal: tokenizeDecimal,
+    evaluateDecimal: evaluateDecimal,
+    formatDecimalResult: formatDecimalResult,
   };
 });
