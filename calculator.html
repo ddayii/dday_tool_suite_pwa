@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Calculator — DDay Controls</title>
+  <title>DDay Controls Calculators</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
   <meta name="theme-color" content="#263626">
@@ -169,6 +169,16 @@
     .key.equals.one { grid-column: span 1; }
     .key.equals:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
+    /* The display has to stay on screen while the keypad is being used —
+       otherwise you cannot see what you are typing without scrolling back up.
+       56px clears the app header, which is itself sticky at the top. */
+    .card.pinned {
+      position: sticky;
+      top: 56px;
+      z-index: 12;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+    }
+
     .mode { display: none; }
     .mode.active { display: block; }
 
@@ -190,7 +200,7 @@
     <a class="back-btn" href="index.html">&#8592; Back</a>
     <img class="header-logo" src="icons/calculator-icon.png" alt="">
     <div class="header-text">
-      <div class="title">Engineering Calculator</div>
+      <div class="title">Calculators</div>
       <div class="subtitle">Standard · Programmer · Analog · Motor</div>
     </div>
   </header>
@@ -214,7 +224,7 @@
 
     <!-- ══ STANDARD ════════════════════════════════════════════════════════ -->
     <section class="mode active" id="mode-standard" style="margin-top:14px">
-      <div class="card" style="padding-bottom:14px">
+      <div class="card pinned" style="padding-bottom:14px">
         <input type="text" id="std-expr" class="calc-display entry"
                value="0"
                autocomplete="off" autocorrect="off"
@@ -275,7 +285,7 @@
 
     <!-- ══ BASE MATH ═══════════════════════════════════════════════════════ -->
     <section class="mode" id="mode-calc" style="margin-top:14px">
-      <div class="card" style="padding-bottom:12px">
+      <div class="card pinned" style="padding-bottom:12px">
 
         <!-- Display. Editable, so the keypad and the keyboard both work. -->
         <input type="text" id="expr" class="calc-display"
@@ -304,7 +314,12 @@
           </div>
         </div>
 
-        <div class="seg-control" role="group" aria-label="Word size" style="margin-top:12px">
+
+        <div class="note" id="calc-note"></div>
+      </div>
+
+      <div class="card">
+        <div class="seg-control" role="group" aria-label="Word size" style="margin-top:0">
           <input type="radio" name="cwidth" id="cw8" value="8">
           <label for="cw8">BYTE</label>
           <input type="radio" name="cwidth" id="cw16" value="16" checked>
@@ -323,10 +338,6 @@
           <p class="hint" id="calc-range" style="margin-top:12px"></p>
         </div>
 
-        <div class="note" id="calc-note"></div>
-      </div>
-
-      <div class="card">
         <!-- Memory -->
         <div class="keypad small">
           <button class="key sm" type="button" data-mem="MC">MC</button>
