@@ -126,6 +126,21 @@
       gap: 6px;
     }
     .keypad.small { margin-bottom: 6px; }
+    .keypad.four { grid-template-columns: repeat(4, 1fr); }
+
+    .calc-display.entry { font-size: 1.15rem; color: var(--text-muted); border-bottom: none; }
+
+    .calc-result {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 1.9rem;
+      font-weight: 700;
+      text-align: right;
+      color: var(--text);
+      padding: 2px 4px 10px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
 
     .key {
       padding: 15px 0;
@@ -151,6 +166,7 @@
       border-color: var(--accent);
       color: #fff;
     }
+    .key.equals.one { grid-column: span 1; }
     .key.equals:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
     .mode { display: none; }
@@ -175,15 +191,17 @@
     <img class="header-logo" src="icons/calculator-icon.png" alt="">
     <div class="header-text">
       <div class="title">Engineering Calculator</div>
-      <div class="subtitle">Base · Analog · Motor · Encoder</div>
+      <div class="subtitle">Standard · Programmer · Analog · Motor</div>
     </div>
   </header>
 
   <main class="content">
 
     <div class="seg-control" role="group" aria-label="Calculator mode" style="margin-top:0">
-      <input type="radio" name="mode" id="m-calc" value="calc" checked>
-      <label for="m-calc">Base Math</label>
+      <input type="radio" name="mode" id="m-standard" value="standard" checked>
+      <label for="m-standard">Standard</label>
+      <input type="radio" name="mode" id="m-calc" value="calc">
+      <label for="m-calc">Programmer</label>
       <input type="radio" name="mode" id="m-analog" value="analog">
       <label for="m-analog">Analog</label>
       <input type="radio" name="mode" id="m-ohms" value="ohms">
@@ -194,8 +212,69 @@
       <label for="m-encoder">Encoder</label>
     </div>
 
+    <!-- ══ STANDARD ════════════════════════════════════════════════════════ -->
+    <section class="mode active" id="mode-standard" style="margin-top:14px">
+      <div class="card" style="padding-bottom:14px">
+        <input type="text" id="std-expr" class="calc-display entry"
+               value="0"
+               autocomplete="off" autocorrect="off"
+               autocapitalize="off" spellcheck="false"
+               aria-label="Expression">
+        <div class="calc-result" id="std-result">0</div>
+        <div class="note" id="std-note"></div>
+      </div>
+
+      <div class="card">
+        <div class="keypad small">
+          <button class="key sm" type="button" data-smem="MC">MC</button>
+          <button class="key sm" type="button" data-smem="MR">MR</button>
+          <button class="key sm" type="button" data-smem="MS">MS</button>
+          <button class="key sm" type="button" data-smem="M+">M+</button>
+          <button class="key sm" type="button" data-smem="M-">M&minus;</button>
+        </div>
+
+        <div class="keypad four">
+          <button class="key op" type="button" data-sins=" % " title="Remainder after division">mod</button>
+          <button class="key op" type="button" data-sact="sqrt">&radic;</button>
+          <button class="key op" type="button" data-sact="square">x&sup2;</button>
+          <button class="key op" type="button" data-sact="inverse">1/x</button>
+
+          <button class="key op" type="button" data-sact="clearentry">CE</button>
+          <button class="key op" type="button" data-sact="clear">C</button>
+          <button class="key op" type="button" data-sact="back">&#9003;</button>
+          <button class="key op" type="button" data-sins=" / ">&divide;</button>
+
+          <button class="key" type="button" data-sins="7">7</button>
+          <button class="key" type="button" data-sins="8">8</button>
+          <button class="key" type="button" data-sins="9">9</button>
+          <button class="key op" type="button" data-sins=" * ">&times;</button>
+
+          <button class="key" type="button" data-sins="4">4</button>
+          <button class="key" type="button" data-sins="5">5</button>
+          <button class="key" type="button" data-sins="6">6</button>
+          <button class="key op" type="button" data-sins=" - ">&minus;</button>
+
+          <button class="key" type="button" data-sins="1">1</button>
+          <button class="key" type="button" data-sins="2">2</button>
+          <button class="key" type="button" data-sins="3">3</button>
+          <button class="key op" type="button" data-sins=" + ">+</button>
+
+          <button class="key op" type="button" data-sact="negate">&plusmn;</button>
+          <button class="key" type="button" data-sins="0">0</button>
+          <button class="key" type="button" data-sins=".">.</button>
+          <button class="key equals one" type="button" data-sact="equals">=</button>
+        </div>
+
+        <p class="hint">
+          Type into the display or use the keys. Parentheses, <code>^</code> for powers and
+          <code>sqrt()</code> all work when typed. <code>mod</code> is the remainder after
+          division. Results are rounded to 12 significant digits, so 0.1 + 0.2 reads as 0.3.
+        </p>
+      </div>
+    </section>
+
     <!-- ══ BASE MATH ═══════════════════════════════════════════════════════ -->
-    <section class="mode active" id="mode-calc" style="margin-top:14px">
+    <section class="mode" id="mode-calc" style="margin-top:14px">
       <div class="card" style="padding-bottom:12px">
 
         <!-- Display. Editable, so the keypad and the keyboard both work. -->
@@ -301,13 +380,16 @@
           <button class="key hexkey" type="button" data-digit="F">F</button>
           <button class="key op" type="button" data-act="negate">&plusmn;</button>
           <button class="key" type="button" data-digit="0">0</button>
-          <button class="key equals" type="button" data-act="equals">=</button>
+          <button class="key" type="button" id="prog-point" disabled
+                  title="Whole numbers only here — use Standard for decimals">.</button>
+          <button class="key equals one" type="button" data-act="equals">=</button>
         </div>
 
         <p class="hint">
-          Type into the display or use the keys. Operators follow C precedence; division
-          truncates toward zero and the remainder takes the sign of the dividend, matching
-          structured text. Every step wraps to the selected word size.
+          Whole numbers only — bases and word sizes have no meaning for 2.5, so the decimal
+          point is disabled here. Use <strong>Standard</strong> for decimal arithmetic.
+          Operators follow C precedence; division truncates toward zero and the remainder takes
+          the sign of the dividend, matching structured text. Every step wraps to the word size.
         </p>
       </div>
     </section>
@@ -677,6 +759,98 @@
       });
     });
 
+    // ── Standard calculator ──────────────────────────────────────────────────
+    // A plain decimal calculator. Kept separate from Programmer because bases,
+    // word sizes and two's-complement wrapping have no meaning for 2.5.
+
+    let stdLast = 0;
+    let stdMemory = 0;
+
+    function updateStandard() {
+      const text = $('std-expr').value;
+
+      if (!text.trim()) {
+        $('std-result').textContent = '0';
+        stdLast = 0;
+        setNote('std-note', '');
+        return;
+      }
+
+      try {
+        stdLast = C.evaluateDecimal(text);
+        $('std-result').textContent = C.formatDecimalResult(stdLast);
+        setNote('std-note', '');
+      } catch (err) {
+        $('std-result').textContent = '—';
+        setNote('std-note', err.message, 'error');
+      }
+    }
+
+    function insertStandard(text) {
+      const field = $('std-expr');
+      // A lone leading zero is a placeholder, not something to build on —
+      // except before a point, where "0." is exactly what you want.
+      if (field.value === '0' && /^[0-9(]/.test(text)) field.value = '';
+      field.value += text;
+      updateStandard();
+    }
+
+    function standardAction(action) {
+      const field = $('std-expr');
+      const text = field.value;
+
+      if (action === 'clear') {
+        field.value = '0';
+      } else if (action === 'clearentry') {
+        // CE drops the number being typed, leaving the rest of the sum.
+        field.value = text.replace(/[\d.]+\s*$/, '').trim() || '0';
+      } else if (action === 'back') {
+        field.value = text.slice(0, -1).trim() || '0';
+      } else if (action === 'negate') {
+        const wrapped = /^-\((.*)\)$/.exec(text);
+        field.value = wrapped ? wrapped[1] : `-(${text})`;
+      } else if (action === 'sqrt') {
+        field.value = `sqrt(${text})`;
+      } else if (action === 'square') {
+        field.value = `(${text})^2`;
+      } else if (action === 'inverse') {
+        field.value = `1/(${text})`;
+      } else if (action === 'equals') {
+        try {
+          field.value = C.formatDecimalResult(C.evaluateDecimal(text));
+        } catch (err) {
+          setNote('std-note', err.message, 'error');
+          return;
+        }
+      }
+
+      updateStandard();
+    }
+
+    function standardMemoryAction(action) {
+      if (action === 'MC') { stdMemory = 0; showToast('Memory cleared'); return; }
+      if (action === 'MR') { insertStandard(C.formatDecimalResult(stdMemory)); return; }
+      if (action === 'MS') stdMemory = stdLast;
+      else if (action === 'M+') stdMemory += stdLast;
+      else stdMemory -= stdLast;
+
+      showToast('Memory ' + C.formatDecimalResult(stdMemory));
+    }
+
+    document.querySelectorAll('.key[data-sins]').forEach(key =>
+      key.addEventListener('click', () => insertStandard(key.dataset.sins)));
+    document.querySelectorAll('.key[data-sact]').forEach(key =>
+      key.addEventListener('click', () => standardAction(key.dataset.sact)));
+    document.querySelectorAll('.key[data-smem]').forEach(key =>
+      key.addEventListener('click', () => standardMemoryAction(key.dataset.smem)));
+
+    $('std-expr').addEventListener('input', updateStandard);
+    $('std-expr').addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); standardAction('equals'); }
+    });
+
+    updateStandard();
+
     // ── Base math ────────────────────────────────────────────────────────────
     // The keypad and the keyboard both write into one expression string; the
     // four base rows are just that string evaluated and re-rendered.
@@ -771,7 +945,7 @@
     function insertCalc(text) {
       const field = $('expr');
       // A lone leading zero is a placeholder, not something to build on.
-      if (field.value === '0' && /[0-9A-F(~]/.test(text)) field.value = '';
+      if (field.value === '0' && /^[0-9A-F(~]/.test(text)) field.value = '';
       field.value += text;
       updateCalc();
     }
