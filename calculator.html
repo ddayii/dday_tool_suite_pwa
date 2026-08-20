@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Calculator — DDay Controls</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#263626">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    /* Two-up field rows that collapse to a single column on narrow phones. */
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 360px) { .field-grid { grid-template-columns: 1fr 1fr; } }
+    .field-grid.three { grid-template-columns: 1fr; }
+    @media (min-width: 360px) { .field-grid.three { grid-template-columns: 1fr 1fr 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field .field-label { margin-bottom: 0; }
+
+    .card-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .hint code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--text);
+    }
+
+    .note {
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      display: none;
+    }
+    .note.error { display: block; background: rgba(200,60,40,0.16); color: #ffb3a0; border: 1px solid rgba(200,60,40,0.4); }
+    .note.warn  { display: block; background: rgba(200,150,40,0.14); color: #f0cf94; border: 1px solid rgba(200,150,40,0.38); }
+
+    .mode { display: none; }
+    .mode.active { display: block; }
+
+    .checkline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+    .checkline input { accent-color: var(--accent); width: 16px; height: 16px; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="back-btn" href="index.html">&#8592; Back</a>
+    <img class="header-logo" src="icons/calculator-icon.png" alt="">
+    <div class="header-text">
+      <div class="title">Engineering Calculator</div>
+      <div class="subtitle">Base · Analog · Motor · Encoder</div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <div class="seg-control" role="group" aria-label="Calculator mode" style="margin-top:0">
+      <input type="radio" name="mode" id="m-calc" value="calc" checked>
+      <label for="m-calc">Base Math</label>
+      <input type="radio" name="mode" id="m-analog" value="analog">
+      <label for="m-analog">Analog</label>
+      <input type="radio" name="mode" id="m-ohms" value="ohms">
+      <label for="m-ohms">Ohm's Law</label>
+      <input type="radio" name="mode" id="m-motor" value="motor">
+      <label for="m-motor">Motor</label>
+      <input type="radio" name="mode" id="m-encoder" value="encoder">
+      <label for="m-encoder">Encoder</label>
+    </div>
+
+    <!-- ══ BASE MATH ═══════════════════════════════════════════════════════ -->
+    <section class="mode active" id="mode-calc" style="margin-top:14px">
+      <div class="card">
+        <label class="field-label" for="expr">Expression</label>
+        <input type="text" id="expr"
+               placeholder="e.g. (0x1F &lt;&lt; 4) | 3"
+               autocomplete="off" autocorrect="off"
+               autocapitalize="off" spellcheck="false">
+
+        <span class="field-label" style="margin-top:12px; margin-bottom:5px">Input base</span>
+        <div class="seg-control" role="group" aria-label="Input base" style="margin-top:0">
+          <input type="radio" name="cbase" id="cb-dec" value="DEC" checked>
+          <label for="cb-dec">DEC</label>
+          <input type="radio" name="cbase" id="cb-hex" value="HEX">
+          <label for="cb-hex">HEX</label>
+          <input type="radio" name="cbase" id="cb-oct" value="OCT">
+          <label for="cb-oct">OCT</label>
+          <input type="radio" name="cbase" id="cb-bin" value="BIN">
+          <label for="cb-bin">BIN</label>
+        </div>
+
+        <div style="display:flex; align-items:flex-start; gap:14px; margin-top:12px; flex-wrap:wrap">
+          <div>
+            <span class="field-label" style="margin-bottom:5px">Word size</span>
+            <div class="seg-control" role="group" aria-label="Word size" style="margin-top:0">
+              <input type="radio" name="cwidth" id="cw8" value="8">
+              <label for="cw8">8</label>
+              <input type="radio" name="cwidth" id="cw16" value="16" checked>
+              <label for="cw16">16</label>
+              <input type="radio" name="cwidth" id="cw32" value="32">
+              <label for="cw32">32</label>
+              <input type="radio" name="cwidth" id="cw64" value="64">
+              <label for="cw64">64</label>
+            </div>
+          </div>
+          <div>
+            <span class="field-label" style="margin-bottom:5px">Mode</span>
+            <label class="checkline" style="margin-top:0; height:34px">
+              <input type="checkbox" id="csigned">
+              <span>Signed</span>
+            </label>
+          </div>
+        </div>
+
+        <p class="hint" id="calc-range"></p>
+        <div class="note" id="calc-note"></div>
+      </div>
+
+      <div id="calc-results" class="results-grid" style="display:none"></div>
+      <div id="calc-placeholder" class="placeholder">Enter an expression to see it in every base</div>
+
+      <div class="card">
+        <p class="hint" style="margin-top:0">
+          Operators <code>+ - * / % &amp; | ^ ~ &lt;&lt; &gt;&gt;</code> and parentheses, with C precedence.
+          Division truncates toward zero and the remainder takes the sign of the dividend, matching
+          structured text. Bare numbers read in the selected base; <code>0x</code>, <code>0o</code> and
+          <code>0b</code> override it. Every step wraps to the chosen word size.
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ ANALOG SCALING ══════════════════════════════════════════════════ -->
+    <section class="mode" id="mode-analog" style="margin-top:14px">
+      <div class="card">
+        <div class="seg-control" role="group" aria-label="Scaling direction" style="margin-top:0">
+          <input type="radio" name="adir" id="ad-raw" value="raw" checked>
+          <label for="ad-raw">Raw → Units</label>
+          <input type="radio" name="adir" id="ad-eu" value="eu">
+          <label for="ad-eu">Units → Raw</label>
+        </div>
+
+        <label class="field-label" style="margin-top:14px" for="a-preset">Raw range preset</label>
+        <select id="a-preset"></select>
+        <p class="hint" id="a-preset-note" style="margin-top:6px"></p>
+
+        <div class="field-grid" style="margin-top:12px">
+          <div class="field">
+            <label class="field-label" for="a-raw-lo">Raw low</label>
+            <input type="text" id="a-raw-lo" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="field-label" for="a-raw-hi">Raw high</label>
+            <input type="text" id="a-raw-hi" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="field-label" for="a-eu-lo">Units low</label>
+            <input type="text" id="a-eu-lo" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0">
+          </div>
+          <div class="field">
+            <label class="field-label" for="a-eu-hi">Units high</label>
+            <input type="text" id="a-eu-hi" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="100">
+          </div>
+        </div>
+
+        <label class="field-label" style="margin-top:12px" for="a-value" id="a-value-label">Raw value</label>
+        <input type="text" id="a-value" inputmode="decimal" autocomplete="off" spellcheck="false"
+               placeholder="Enter a value">
+
+        <label class="checkline">
+          <input type="checkbox" id="a-clamp">
+          <span>Clamp to range</span>
+        </label>
+
+        <div class="note" id="a-note"></div>
+      </div>
+
+      <div id="a-results" class="results-grid" style="display:none"></div>
+      <div id="a-placeholder" class="placeholder">Enter a value to scale it</div>
+    </section>
+
+    <!-- ══ OHM'S LAW ═══════════════════════════════════════════════════════ -->
+    <section class="mode" id="mode-ohms" style="margin-top:14px">
+      <div class="card">
+        <p class="hint" style="margin-top:0; margin-bottom:12px">Fill in any two — the other two are solved for you.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label" for="o-v">Voltage (V)</label>
+            <input type="text" id="o-v" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="field-label" for="o-i">Current (A)</label>
+            <input type="text" id="o-i" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="field-label" for="o-r">Resistance (Ω)</label>
+            <input type="text" id="o-r" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="field-label" for="o-p">Power (W)</label>
+            <input type="text" id="o-p" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" type="button" id="o-clear">Clear</button>
+        </div>
+        <div class="note" id="o-note"></div>
+      </div>
+
+      <div id="o-results" class="results-grid" style="display:none"></div>
+      <div id="o-placeholder" class="placeholder">Enter exactly two values</div>
+    </section>
+
+    <!-- ══ MOTOR & DRIVE ═══════════════════════════════════════════════════ -->
+    <section class="mode" id="mode-motor" style="margin-top:14px">
+
+      <div class="card">
+        <div class="card-title">Power &amp; torque</div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label" for="mt-hp">Power (HP)</label>
+            <input type="text" id="mt-hp" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="10">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mt-rpm">Speed (RPM)</label>
+            <input type="text" id="mt-rpm" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="1750">
+          </div>
+        </div>
+        <div id="mt-results" class="results-grid" style="margin-top:12px; display:none"></div>
+        <div class="note" id="mt-note"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Synchronous speed &amp; slip</div>
+        <div class="field-grid three">
+          <div class="field">
+            <label class="field-label" for="ms-hz">Line freq (Hz)</label>
+            <input type="text" id="ms-hz" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="60">
+          </div>
+          <div class="field">
+            <label class="field-label" for="ms-poles">Poles</label>
+            <input type="text" id="ms-poles" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="4">
+          </div>
+          <div class="field">
+            <label class="field-label" for="ms-actual">Nameplate RPM</label>
+            <input type="text" id="ms-actual" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="1750">
+          </div>
+        </div>
+        <div id="ms-results" class="results-grid" style="margin-top:12px; display:none"></div>
+        <div class="note" id="ms-note"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Circuit power</div>
+        <div class="seg-control" role="group" aria-label="Phase" style="margin-top:0">
+          <input type="radio" name="mphase" id="mp-3" value="3" checked>
+          <label for="mp-3">Three phase</label>
+          <input type="radio" name="mphase" id="mp-1" value="1">
+          <label for="mp-1">Single phase</label>
+        </div>
+        <div class="field-grid three" style="margin-top:12px">
+          <div class="field">
+            <label class="field-label" for="mp-v">Volts</label>
+            <input type="text" id="mp-v" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="480">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mp-a">Amps</label>
+            <input type="text" id="mp-a" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="100">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mp-pf">Power factor</label>
+            <input type="text" id="mp-pf" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.85">
+          </div>
+        </div>
+        <div id="mp-results" class="results-grid" style="margin-top:12px; display:none"></div>
+        <div class="note" id="mp-note"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Full-load current</div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label" for="mf-hp">Rating (HP)</label>
+            <input type="text" id="mf-hp" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="10">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mf-v">Volts</label>
+            <input type="text" id="mf-v" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="480">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mf-pf">Power factor</label>
+            <input type="text" id="mf-pf" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.85">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mf-eff">Efficiency</label>
+            <input type="text" id="mf-eff" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.92">
+          </div>
+        </div>
+        <div id="mf-results" class="results-grid" style="margin-top:12px; display:none"></div>
+        <div class="note" id="mf-note"></div>
+        <p class="hint">Calculated from the motor's output rating. Size conductors and overloads from the
+          NEC full-load current tables, which run higher than the calculated value.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Gearbox</div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label" for="mg-rpm">Input RPM</label>
+            <input type="text" id="mg-rpm" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="1750">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mg-ratio">Reduction ratio : 1</label>
+            <input type="text" id="mg-ratio" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="10">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mg-torque">Input torque</label>
+            <input type="text" id="mg-torque" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="30">
+          </div>
+          <div class="field">
+            <label class="field-label" for="mg-eff">Efficiency</label>
+            <input type="text" id="mg-eff" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.95">
+          </div>
+        </div>
+        <div id="mg-results" class="results-grid" style="margin-top:12px; display:none"></div>
+        <div class="note" id="mg-note"></div>
+      </div>
+
+    </section>
+
+    <!-- ══ ENCODER & MOTION ════════════════════════════════════════════════ -->
+    <section class="mode" id="mode-encoder" style="margin-top:14px">
+      <div class="card">
+        <div class="card-title">Drive train</div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label" for="e-ppr">Pulses per rev</label>
+            <input type="text" id="e-ppr" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="1024">
+          </div>
+          <div class="field">
+            <label class="field-label" for="e-quad">Decode</label>
+            <select id="e-quad">
+              <option value="1">x1 — single edge</option>
+              <option value="2">x2 — both edges, one channel</option>
+              <option value="4" selected>x4 — both edges, A and B</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="field-label" style="margin-top:12px" for="e-mech">Mechanism</label>
+        <select id="e-mech">
+          <option value="Leadscrew / belt pitch" selected>Leadscrew / belt pitch</option>
+          <option value="Pulley / roller diameter">Pulley / roller diameter</option>
+          <option value="Rotary (degrees)">Rotary (degrees)</option>
+        </select>
+
+        <div class="field-grid" style="margin-top:12px">
+          <div class="field">
+            <label class="field-label" for="e-dim" id="e-dim-label">Pitch per rev</label>
+            <input type="text" id="e-dim" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="5">
+          </div>
+          <div class="field">
+            <label class="field-label" for="e-gear">Gear ratio : 1</label>
+            <input type="text" id="e-gear" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="1">
+          </div>
+        </div>
+
+        <p class="hint">Travel figures come back in whatever unit you enter the pitch or diameter in.</p>
+        <div class="note" id="e-note"></div>
+      </div>
+
+      <div id="e-results" class="results-grid" style="display:none"></div>
+      <div id="e-placeholder" class="placeholder">Enter the drive train to see resolution</div>
+
+      <div class="card">
+        <div class="card-title">Travel &amp; frequency</div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label" for="e-dist">Distance to move</label>
+            <input type="text" id="e-dist" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="100">
+          </div>
+          <div class="field">
+            <label class="field-label" for="e-rpm">Shaft speed (RPM)</label>
+            <input type="text" id="e-rpm" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="3000">
+          </div>
+        </div>
+        <div id="e2-results" class="results-grid" style="margin-top:12px; display:none"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="toast" id="toast">Copied</div>
+
+  <script src="calc-core.js"></script>
+  <script>
+    const C = window.DDayCalc;
+
+    // ── Shared helpers ───────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+
+    // Return the field's value as a number, or null when blank or unparseable.
+    function num(id) {
+      const raw = $(id).value.trim();
+      if (!raw) return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : null;
+    }
+
+    // True when the field holds text that is not a usable number.
+    function bad(id) {
+      return $(id).value.trim() !== '' && num(id) === null;
+    }
+
+    function setNote(id, message, kind) {
+      const el = $(id);
+      el.textContent = message || '';
+      el.className = message ? 'note ' + (kind || 'error') : 'note';
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      const el = $('toast');
+      el.textContent = message;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 1400);
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => showToast('Copied'), () => showToast('Copy failed'));
+        return;
+      }
+      // Fallback for pages opened over plain http or from the filesystem.
+      const scratch = document.createElement('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.position = 'fixed';
+      scratch.style.opacity = '0';
+      document.body.appendChild(scratch);
+      scratch.select();
+      try { document.execCommand('copy'); showToast('Copied'); }
+      catch (err) { showToast('Copy failed'); }
+      document.body.removeChild(scratch);
+    }
+
+    // Render a list of {tag, value, wide} rows into a results grid.
+    function renderRows(gridId, placeholderId, rows) {
+      const grid = $(gridId);
+      const placeholder = placeholderId ? $(placeholderId) : null;
+      grid.innerHTML = '';
+
+      if (!rows || !rows.length) {
+        grid.style.display = 'none';
+        if (placeholder) placeholder.style.display = '';
+        return;
+      }
+
+      if (placeholder) placeholder.style.display = 'none';
+      grid.style.display = '';
+
+      rows.forEach(row => {
+        const div = document.createElement('div');
+        div.className = 'result-row';
+        if (row.wide) div.style.gridColumn = '1 / -1';
+
+        const tag = document.createElement('span');
+        tag.className = 'base-tag';
+        tag.style.minWidth = row.wideTag ? '96px' : '';
+        tag.textContent = row.tag;
+
+        const value = document.createElement('span');
+        value.className = 'value';
+        value.textContent = row.value;
+
+        const hint = document.createElement('span');
+        hint.className = 'copy-hint';
+        hint.textContent = 'tap to copy';
+
+        div.append(tag, value, hint);
+        div.addEventListener('click', () => copyText(row.copy !== undefined ? row.copy : row.value));
+        grid.appendChild(div);
+      });
+    }
+
+    const fmt = C.formatNumber;
+
+    // ── Mode switching ───────────────────────────────────────────────────────
+    document.querySelectorAll('input[name=mode]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.querySelectorAll('.mode').forEach(section => section.classList.remove('active'));
+        $('mode-' + radio.value).classList.add('active');
+        window.scrollTo(0, 0);
+      });
+    });
+
+    // ── Base math ────────────────────────────────────────────────────────────
+    const calcBase   = () => document.querySelector('input[name=cbase]:checked').value;
+    const calcWidth  = () => parseInt(document.querySelector('input[name=cwidth]:checked').value, 10);
+    const calcSigned = () => $('csigned').checked;
+
+    function updateCalcRange() {
+      const bits = BigInt(calcWidth());
+      const lo = calcSigned() ? -(1n << (bits - 1n)) : 0n;
+      const hi = calcSigned() ? (1n << (bits - 1n)) - 1n : (1n << bits) - 1n;
+      $('calc-range').textContent = `Range: ${lo.toLocaleString()} … ${hi.toLocaleString()}`;
+    }
+
+    function updateCalc() {
+      const text = $('expr').value;
+      const bits = calcWidth();
+
+      if (!text.trim()) {
+        setNote('calc-note', '');
+        renderRows('calc-results', 'calc-placeholder', []);
+        $('calc-placeholder').textContent = 'Enter an expression to see it in every base';
+        return;
+      }
+
+      let result;
+      try {
+        result = C.evaluateExpression(text, calcBase(), bits, calcSigned());
+      } catch (err) {
+        setNote('calc-note', err.message, 'error');
+        renderRows('calc-results', 'calc-placeholder', []);
+        $('calc-placeholder').textContent = 'Fix the expression to see a result';
+        return;
+      }
+
+      setNote('calc-note', result.overflow
+        ? `Result wrapped to ${bits} bits — the full value did not fit.` : '', 'warn');
+
+      renderRows('calc-results', 'calc-placeholder', [
+        { tag: 'DEC', value: C.formatInBase(result.value, 'DEC', bits) },
+        { tag: 'HEX', value: C.formatInBase(result.value, 'HEX', bits) },
+        { tag: 'OCT', value: C.formatInBase(result.value, 'OCT', bits) },
+        { tag: 'BIN', value: C.formatInBase(result.value, 'BIN', bits), wide: true },
+      ]);
+    }
+
+    $('expr').addEventListener('input', updateCalc);
+    document.querySelectorAll('input[name=cbase]').forEach(r => r.addEventListener('change', updateCalc));
+    document.querySelectorAll('input[name=cwidth]').forEach(r => r.addEventListener('change', () => {
+      updateCalcRange();
+      updateCalc();
+    }));
+    $('csigned').addEventListener('change', () => { updateCalcRange(); updateCalc(); });
+    updateCalcRange();
+
+    // ── Analog scaling ───────────────────────────────────────────────────────
+    const presetSelect = $('a-preset');
+    C.ANALOG_RAW_PRESETS.forEach((preset, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `${preset.name}  (${preset.low} … ${preset.high})`;
+      presetSelect.appendChild(option);
+    });
+    const customOption = document.createElement('option');
+    customOption.value = 'custom';
+    customOption.textContent = 'Custom';
+    presetSelect.appendChild(customOption);
+
+    function applyPreset() {
+      const chosen = presetSelect.value;
+      if (chosen === 'custom') {
+        $('a-preset-note').textContent = 'Enter the raw range by hand.';
+        return;
+      }
+      const preset = C.ANALOG_RAW_PRESETS[parseInt(chosen, 10)];
+      $('a-raw-lo').value = String(preset.low);
+      $('a-raw-hi').value = String(preset.high);
+      $('a-preset-note').textContent = preset.note;
+      updateAnalog();
+    }
+
+    function analogDirection() {
+      return document.querySelector('input[name=adir]:checked').value;
+    }
+
+    function updateAnalogLabels() {
+      const toEu = analogDirection() === 'raw';
+      $('a-value-label').textContent = toEu ? 'Raw value' : 'Engineering value';
+    }
+
+    function updateAnalog() {
+      updateAnalogLabels();
+
+      const rawLo = num('a-raw-lo');
+      const rawHi = num('a-raw-hi');
+      const euLo = num('a-eu-lo') === null && $('a-eu-lo').value.trim() === '' ? 0 : num('a-eu-lo');
+      const euHi = num('a-eu-hi') === null && $('a-eu-hi').value.trim() === '' ? 100 : num('a-eu-hi');
+      const value = num('a-value');
+      const clamp = $('a-clamp').checked;
+
+      if ([rawLo, rawHi, euLo, euHi].some(x => x === null)) {
+        setNote('a-note', 'Enter numbers for both ranges.', 'error');
+        renderRows('a-results', 'a-placeholder', []);
+        $('a-placeholder').textContent = 'Enter a value to scale it';
+        return;
+      }
+
+      if (value === null) {
+        setNote('a-note', '');
+        renderRows('a-results', 'a-placeholder', []);
+        $('a-placeholder').textContent = $('a-value').value.trim()
+          ? 'That value is not a number' : 'Enter a value to scale it';
+        return;
+      }
+
+      try {
+        if (analogDirection() === 'raw') {
+          const out = C.scaleAnalog(value, rawLo, rawHi, euLo, euHi, clamp);
+          rangeNote(out.underRange, out.overRange, clamp);
+          renderRows('a-results', 'a-placeholder', [
+            { tag: 'UNITS', value: fmt(out.eu), wide: true },
+            { tag: 'PERCENT', value: fmt(out.percent) + ' %' },
+            { tag: 'PER COUNT', value: fmt(out.resolution) },
+            { tag: 'RAW SPAN', value: fmt(out.rawSpan) },
+            { tag: 'UNIT SPAN', value: fmt(out.euSpan) },
+          ]);
+        } else {
+          const out = C.unscaleAnalog(value, rawLo, rawHi, euLo, euHi, clamp);
+          rangeNote(out.underRange, out.overRange, clamp);
+          renderRows('a-results', 'a-placeholder', [
+            { tag: 'RAW', value: fmt(out.raw), wide: true },
+            { tag: 'ROUNDED', value: String(out.rawRounded) },
+            { tag: 'PERCENT', value: fmt(out.percent) + ' %' },
+          ]);
+        }
+      } catch (err) {
+        setNote('a-note', err.message, 'error');
+        renderRows('a-results', 'a-placeholder', []);
+        $('a-placeholder').textContent = 'Fix the range to see a result';
+      }
+    }
+
+    function rangeNote(under, over, clamp) {
+      if (!under && !over) { setNote('a-note', ''); return; }
+      const side = under ? 'below' : 'above';
+      setNote('a-note', clamp
+        ? `Input is ${side} range — result clamped to the limit.`
+        : `Input is ${side} range — result is extrapolated past the limit.`, 'warn');
+    }
+
+    presetSelect.addEventListener('change', applyPreset);
+    ['a-raw-lo', 'a-raw-hi', 'a-eu-lo', 'a-eu-hi', 'a-value'].forEach(id =>
+      $(id).addEventListener('input', () => {
+        // Hand-editing a range means the preset no longer describes it.
+        if (['a-raw-lo', 'a-raw-hi'].includes(id) && presetSelect.value !== 'custom') {
+          presetSelect.value = 'custom';
+          $('a-preset-note').textContent = 'Enter the raw range by hand.';
+        }
+        updateAnalog();
+      }));
+    $('a-clamp').addEventListener('change', updateAnalog);
+    document.querySelectorAll('input[name=adir]').forEach(r => r.addEventListener('change', updateAnalog));
+    applyPreset();
+
+    // ── Ohm's law ────────────────────────────────────────────────────────────
+    const OHM_FIELDS = ['o-v', 'o-i', 'o-r', 'o-p'];
+
+    function updateOhms() {
+      const filled = OHM_FIELDS.filter(id => $(id).value.trim() !== '');
+
+      if (filled.some(id => num(id) === null)) {
+        setNote('o-note', 'Those entries must be numbers.', 'error');
+        renderRows('o-results', 'o-placeholder', []);
+        $('o-placeholder').textContent = 'Enter exactly two values';
+        return;
+      }
+
+      if (filled.length !== 2) {
+        setNote('o-note', '');
+        renderRows('o-results', 'o-placeholder', []);
+        $('o-placeholder').textContent = filled.length < 2
+          ? 'Enter exactly two values' : 'Too many values — clear one to solve';
+        return;
+      }
+
+      try {
+        const out = C.solveOhmsLaw(num('o-v'), num('o-i'), num('o-r'), num('o-p'));
+        setNote('o-note', '');
+        renderRows('o-results', 'o-placeholder', [
+          { tag: 'VOLTS', value: fmt(out.volts) + ' V' },
+          { tag: 'AMPS', value: fmt(out.amps) + ' A' },
+          { tag: 'OHMS', value: fmt(out.ohms) + ' Ω' },
+          { tag: 'WATTS', value: fmt(out.watts) + ' W' },
+        ]);
+      } catch (err) {
+        setNote('o-note', err.message, 'error');
+        renderRows('o-results', 'o-placeholder', []);
+        $('o-placeholder').textContent = 'Adjust the inputs to solve';
+      }
+    }
+
+    OHM_FIELDS.forEach(id => $(id).addEventListener('input', updateOhms));
+    $('o-clear').addEventListener('click', () => {
+      OHM_FIELDS.forEach(id => { $(id).value = ''; });
+      updateOhms();
+    });
+
+    // ── Motor: power & torque ────────────────────────────────────────────────
+    function updateTorque() {
+      const hp = num('mt-hp');
+      const rpm = num('mt-rpm');
+
+      if (hp === null || rpm === null) {
+        setNote('mt-note', bad('mt-hp') || bad('mt-rpm') ? 'Enter numbers.' : '', 'error');
+        renderRows('mt-results', null, []);
+        return;
+      }
+
+      try {
+        const out = C.torqueFromPower(hp, rpm);
+        setNote('mt-note', '');
+        renderRows('mt-results', null, [
+          { tag: 'TORQUE', value: fmt(out.lbFt) + ' lb·ft' },
+          { tag: 'TORQUE', value: fmt(out.nM) + ' N·m' },
+          { tag: 'POWER', value: fmt(out.kw) + ' kW' },
+        ]);
+      } catch (err) {
+        setNote('mt-note', err.message, 'error');
+        renderRows('mt-results', null, []);
+      }
+    }
+    ['mt-hp', 'mt-rpm'].forEach(id => $(id).addEventListener('input', updateTorque));
+
+    // ── Motor: synchronous speed & slip ──────────────────────────────────────
+    function updateSlip() {
+      const hz = num('ms-hz');
+      const poles = num('ms-poles');
+      const actual = num('ms-actual');
+
+      if (hz === null || poles === null) {
+        setNote('ms-note', bad('ms-hz') || bad('ms-poles') ? 'Enter numbers.' : '', 'error');
+        renderRows('ms-results', null, []);
+        return;
+      }
+
+      try {
+        const sync = C.synchronousSpeed(hz, poles);
+        setNote('ms-note', '');
+        const rows = [{ tag: 'SYNC', value: fmt(sync) + ' RPM' }];
+
+        if (actual !== null) {
+          rows.push({ tag: 'SLIP', value: fmt(C.slipPercent(sync, actual)) + ' %' });
+          rows.push({ tag: 'SLIP RPM', value: fmt(sync - actual) + ' RPM' });
+        }
+
+        renderRows('ms-results', null, rows);
+      } catch (err) {
+        setNote('ms-note', err.message, 'error');
+        renderRows('ms-results', null, []);
+      }
+    }
+    ['ms-hz', 'ms-poles', 'ms-actual'].forEach(id => $(id).addEventListener('input', updateSlip));
+
+    // ── Motor: circuit power ─────────────────────────────────────────────────
+    function updatePower() {
+      const volts = num('mp-v');
+      const amps = num('mp-a');
+      const pf = num('mp-pf');
+      const threePhase = document.querySelector('input[name=mphase]:checked').value === '3';
+
+      if (volts === null || amps === null || pf === null) {
+        setNote('mp-note', ['mp-v', 'mp-a', 'mp-pf'].some(bad) ? 'Enter numbers.' : '', 'error');
+        renderRows('mp-results', null, []);
+        return;
+      }
+
+      try {
+        const out = C.motorPower(volts, amps, pf, threePhase);
+        setNote('mp-note', '');
+        renderRows('mp-results', null, [
+          { tag: 'REAL', value: fmt(out.kw) + ' kW' },
+          { tag: 'APPARENT', value: fmt(out.kva) + ' kVA' },
+          { tag: 'REACTIVE', value: fmt(out.kvar) + ' kVAR' },
+          { tag: 'OUTPUT', value: fmt(out.hp) + ' HP' },
+        ]);
+      } catch (err) {
+        setNote('mp-note', err.message, 'error');
+        renderRows('mp-results', null, []);
+      }
+    }
+    ['mp-v', 'mp-a', 'mp-pf'].forEach(id => $(id).addEventListener('input', updatePower));
+    document.querySelectorAll('input[name=mphase]').forEach(r => r.addEventListener('change', updatePower));
+
+    // ── Motor: full-load current ─────────────────────────────────────────────
+    function updateFla() {
+      const hp = num('mf-hp');
+      const volts = num('mf-v');
+      const pf = num('mf-pf');
+      const eff = num('mf-eff');
+      const threePhase = document.querySelector('input[name=mphase]:checked').value === '3';
+
+      if ([hp, volts, pf, eff].some(x => x === null)) {
+        setNote('mf-note', ['mf-hp', 'mf-v', 'mf-pf', 'mf-eff'].some(bad) ? 'Enter numbers.' : '', 'error');
+        renderRows('mf-results', null, []);
+        return;
+      }
+
+      try {
+        const amps = C.fullLoadAmps(hp, volts, pf, eff, threePhase);
+        setNote('mf-note', '');
+        renderRows('mf-results', null, [
+          { tag: 'CURRENT', value: fmt(amps) + ' A', wide: true },
+          { tag: 'INPUT', value: fmt(C.hpToKw(hp) / eff) + ' kW' },
+          { tag: 'PHASE', value: threePhase ? 'Three phase' : 'Single phase' },
+        ]);
+      } catch (err) {
+        setNote('mf-note', err.message, 'error');
+        renderRows('mf-results', null, []);
+      }
+    }
+    ['mf-hp', 'mf-v', 'mf-pf', 'mf-eff'].forEach(id => $(id).addEventListener('input', updateFla));
+    document.querySelectorAll('input[name=mphase]').forEach(r => r.addEventListener('change', updateFla));
+
+    // ── Motor: gearbox ───────────────────────────────────────────────────────
+    function updateGearbox() {
+      const rpm = num('mg-rpm');
+      const ratio = num('mg-ratio');
+      const torque = num('mg-torque');
+      const eff = num('mg-eff') === null && $('mg-eff').value.trim() === '' ? 1 : num('mg-eff');
+
+      if (rpm === null || ratio === null || eff === null) {
+        setNote('mg-note', ['mg-rpm', 'mg-ratio', 'mg-eff'].some(bad) ? 'Enter numbers.' : '', 'error');
+        renderRows('mg-results', null, []);
+        return;
+      }
+
+      try {
+        const out = C.gearboxOutput(rpm, ratio, torque || 0, eff);
+        setNote('mg-note', '');
+        const rows = [{ tag: 'OUT RPM', value: fmt(out.outputRpm) }];
+        if (torque !== null) rows.push({ tag: 'OUT TORQUE', value: fmt(out.outputTorque) });
+        renderRows('mg-results', null, rows);
+      } catch (err) {
+        setNote('mg-note', err.message, 'error');
+        renderRows('mg-results', null, []);
+      }
+    }
+    ['mg-rpm', 'mg-ratio', 'mg-torque', 'mg-eff'].forEach(id => $(id).addEventListener('input', updateGearbox));
+
+    // ── Encoder & motion ─────────────────────────────────────────────────────
+    const DIM_LABELS = {
+      'Leadscrew / belt pitch': 'Pitch per rev',
+      'Pulley / roller diameter': 'Diameter',
+      'Rotary (degrees)': 'Not used',
+    };
+
+    function updateEncoder() {
+      const mechanism = $('e-mech').value;
+      const rotary = mechanism === C.MECHANISM_ROTARY;
+
+      $('e-dim-label').textContent = DIM_LABELS[mechanism];
+      $('e-dim').disabled = rotary;
+      $('e-dim').style.opacity = rotary ? '0.45' : '';
+
+      const ppr = num('e-ppr');
+      const quad = parseInt($('e-quad').value, 10);
+      const dim = rotary ? 0 : num('e-dim');
+      const gear = num('e-gear') === null && $('e-gear').value.trim() === '' ? 1 : num('e-gear');
+
+      if (ppr === null || dim === null || gear === null) {
+        setNote('e-note', '');
+        renderRows('e-results', 'e-placeholder', []);
+        renderRows('e2-results', null, []);
+        $('e-placeholder').textContent = 'Enter the drive train to see resolution';
+        return;
+      }
+
+      let out;
+      try {
+        out = C.encoderResolution(ppr, quad, mechanism, dim, gear);
+      } catch (err) {
+        setNote('e-note', err.message, 'error');
+        renderRows('e-results', 'e-placeholder', []);
+        renderRows('e2-results', null, []);
+        $('e-placeholder').textContent = 'Fix the drive train to see resolution';
+        return;
+      }
+
+      setNote('e-note', '');
+      const unit = rotary ? '°' : '';
+      renderRows('e-results', 'e-placeholder', [
+        { tag: 'COUNTS/REV', value: fmt(out.countsPerRev) },
+        { tag: 'TRAVEL/REV', value: fmt(out.travelPerRev) + unit },
+        { tag: 'PER COUNT', value: fmt(out.distancePerCount) + unit, wide: true },
+        { tag: 'COUNTS/UNIT', value: fmt(out.countsPerUnit), wide: true },
+      ]);
+
+      const distance = num('e-dist');
+      const rpm = num('e-rpm');
+      const rows = [];
+
+      if (distance !== null) {
+        rows.push({ tag: 'COUNTS', value: fmt(C.countsForDistance(distance, out.distancePerCount)) });
+      }
+      if (rpm !== null) {
+        const hz = C.pulseFrequency(out.countsPerRev, rpm);
+        rows.push({ tag: 'FREQUENCY', value: fmt(hz) + ' Hz' });
+        rows.push({ tag: 'FREQUENCY', value: fmt(hz / 1000) + ' kHz' });
+      }
+
+      renderRows('e2-results', null, rows);
+    }
+
+    ['e-ppr', 'e-dim', 'e-gear', 'e-dist', 'e-rpm'].forEach(id => $(id).addEventListener('input', updateEncoder));
+    ['e-quad', 'e-mech'].forEach(id => $(id).addEventListener('change', updateEncoder));
+    updateEncoder();
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  </script>
+</body>
+</html>

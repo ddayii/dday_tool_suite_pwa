@@ -9,6 +9,7 @@ A Progressive Web App for PLC and robot engineers. Works in any modern browser a
 ## Tools
 
 - **ASCII Chart** — Full ASCII reference table (0–255) with live search by character, decimal, hex, or control name
+- **Engineering Calculator** — Base-aware programmer math, analog raw/engineering-unit scaling, Ohm's law, motor and drive figures, and encoder resolution
 - **Scalar Converter** — Convert between decimal, hex, binary, and octal with 8/16/32-bit and signed/unsigned support
 - **Unit Converter** — Convert common engineering units
 
