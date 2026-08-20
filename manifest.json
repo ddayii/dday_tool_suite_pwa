@@ -1,7 +1,7 @@
 {
   "name": "DDay Controls Tool Suite",
   "short_name": "DDay Controls",
-  "description": "Engineering calculator, number base converter and ASCII reference chart",
+  "description": "Calculators, number base converter and ASCII reference chart",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0e180e",
