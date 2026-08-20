@@ -1,16 +1,19 @@
-const CACHE = 'dday-controls-v8';
+const CACHE = 'dday-controls-v9';
 const ASSETS = [
   './',
   './index.html',
+  './calculator.html',
   './scalar.html',
   './unit-converter.html',
   './ascii-chart.html',
+  './calc-core.js',
   './style.css',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/converter-icon.png',
   './icons/ascii-icon.png',
+  './icons/calculator-icon.png',
 ];
 
 self.addEventListener('install', e => {
